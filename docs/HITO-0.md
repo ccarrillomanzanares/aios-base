@@ -20,7 +20,7 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | Red: `systemd-networkd` (cable) + `iwd` (wifi) | Hecho: `20-wired.network`, `25-wireless.network`; iwd solo asocia (`EnableNetworkConfiguration=false`) |
 | `/etc/sudoers.d/wheel`, `/etc/locale.conf`, `/etc/vconsole.conf` (es) | Hecho |
 | `Makefile` (`make`, `make model`, `make qemu`, `make qemu-uefi`) y `scripts/download-model.sh` | Hecho. El `mmproj` se guarda como `Qwen3.5-4B-mmproj-F16.gguf` |
-| Primera compilación y arranque en QEMU | **Pendiente** |
+| Primera compilación y arranque en QEMU | Compila (~1 h 20 min la primera vez en el VPS, 16 vCPU) y arranca: GRUB, kernel, systemd, autologin y red OK. `llama-server` carga Qwen3.5-4B + mmproj y responde en 127.0.0.1:8083 (ggml elige la variante de CPU solo). **sway no arrancaba**: faltaba PAM (sin `pam_systemd` no hay sesión de logind ni asiento para libseat). Añadidos `linux-pam`, el `login` de util-linux y `/etc/pam.d/login`; recompilando |
 | Arranque en el HP 15s | **Pendiente** |
 
 ## Decisiones ya tomadas

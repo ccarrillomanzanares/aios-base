@@ -60,6 +60,10 @@ BR2_PACKAGE_LINUX_FIRMWARE_BRCM_BCM43XX=y
 
 # --- systemd ----------------------------------------------------------------
 BR2_PACKAGE_SYSTEMD_LOGIND=y
+# PAM con pam_systemd: sin él el login no abre sesión en logind y sway no
+# consigue asiento (libseat: "Could not get primary session").
+BR2_PACKAGE_LINUX_PAM=y
+BR2_PACKAGE_UTIL_LINUX_LOGIN=y
 BR2_PACKAGE_SYSTEMD_NETWORKD=y
 BR2_PACKAGE_SYSTEMD_RESOLVED=y
 BR2_PACKAGE_SYSTEMD_TIMESYNCD=y
