@@ -1,0 +1,2 @@
+name: AIOS
+desc: Base común de AIOS y newos (Buildroot x86_64 + agente de IA local)

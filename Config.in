@@ -1,0 +1,3 @@
+# Paquetes propios de AIOS (vacío en el hito 0).
+# Cada paquete nuevo: package/<nombre>/Config.in + <nombre>.mk, y una línea aquí:
+# source "$BR2_EXTERNAL_AIOS_PATH/package/<nombre>/Config.in"
