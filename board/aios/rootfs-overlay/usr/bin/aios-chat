@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""AIOS — chat mínimo contra llama-server (hito 0).
+
+Solo biblioteca estándar: la imagen no lleva requests. El agente con
+herramientas llega en el hito 1; esto comprueba que el modelo responde.
+"""
+import json
+import os
+import random
+import readline  # noqa: F401  (historial y edición de línea en input())
+import sys
+import time
+import urllib.error
+import urllib.request
+
+PORT = os.environ.get("AIOS_LLAMA_PORT", "8083")
+BASE = f"http://127.0.0.1:{PORT}"
+SYSTEM = (
+    "You are AIOS, the assistant built into this operating system. "
+    "Answer briefly and in the user's language."
+)
+
+# Frases de películas, como en aios-agent (chat.py)
+QUOTES = [
+    "Greetings, Professor Falken.",
+    "Shall we play a game?",
+    "Would you prefer a nice game of chess?",
+    "A strange game. The only winning move is not to play.",
+    "Wake up, Neo... The Matrix has you...",
+    "Follow the white rabbit.",
+    "Greetings, Programs!",
+    "End of line.",
+    "Open the pod bay doors, HAL.",
+    "I'll be back.",
+]
+
+TYPE_DELAY = 0.025
+
+
+def typewriter(text, delay=TYPE_DELAY, end="\n"):
+    """Escribe carácter a carácter, como el terminal de WOPR."""
+    for ch in text:
+        sys.stdout.write(ch)
+        sys.stdout.flush()
+        if ch != " ":
+            time.sleep(delay)
+    sys.stdout.write(end)
+    sys.stdout.flush()
+
+
+def server_ready():
+    try:
+        with urllib.request.urlopen(BASE + "/health", timeout=2) as r:
+            return r.status == 200
+    except (urllib.error.URLError, OSError):
+        return False
+
+
+def wait_for_server():
+    """Espera a que llama-server termine de cargar el modelo."""
+    if server_ready():
+        return True
+    sys.stdout.write("LOADING MODEL ")
+    sys.stdout.flush()
+    spin = "|/-\\"
+    for i in range(600):  # 5 minutos
+        if server_ready():
+            sys.stdout.write("\rLOADING MODEL ... OK\n")
+            return True
+        sys.stdout.write("\b" + spin[i % 4])
+        sys.stdout.flush()
+        time.sleep(0.5)
+    sys.stdout.write("\rLOADING MODEL ... FAILED\n")
+    print("The local model is not responding. Check: journalctl -u aios-llama")
+    return False
+
+
+def chat(messages):
+    """Envía la conversación y escribe la respuesta según llega (SSE)."""
+    body = json.dumps({
+        "messages": messages,
+        "stream": True,
+        # Sin razonamiento en el hito 0: en CPU cada token cuenta.
+        "chat_template_kwargs": {"enable_thinking": False},
+    }).encode()
+    req = urllib.request.Request(
+        BASE + "/v1/chat/completions", data=body,
+        headers={"Content-Type": "application/json"})
+    reply = []
+    t0 = time.monotonic()
+    ntok = 0
+    with urllib.request.urlopen(req, timeout=600) as r:
+        for raw in r:
+            line = raw.decode("utf-8", "replace").strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            delta = json.loads(data)["choices"][0].get("delta", {})
+            piece = delta.get("content") or ""
+            if piece:
+                ntok += 1
+                reply.append(piece)
+                sys.stdout.write(piece)
+                sys.stdout.flush()
+    dt = time.monotonic() - t0
+    sys.stdout.write("\n")
+    if ntok and dt > 0:
+        print(f"\033[2m[{ntok} tokens, {ntok / dt:.1f} tok/s]\033[0m")
+    return "".join(reply)
+
+
+def main():
+    os.system("clear")
+    typewriter("AIOS LOCAL TERMINAL")
+    typewriter("LOGON: aios")
+    print()
+    typewriter(random.choice(QUOTES).upper(), delay=0.05)
+    print()
+    if not wait_for_server():
+        return 1
+    print("Type a message. /clear starts over, /exit quits.\n")
+
+    messages = [{"role": "system", "content": SYSTEM}]
+    while True:
+        try:
+            text = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not text:
+            continue
+        if text in ("/exit", "/quit"):
+            break
+        if text == "/clear":
+            messages = messages[:1]
+            print("Conversation cleared.")
+            continue
+        messages.append({"role": "user", "content": text})
+        try:
+            messages.append({"role": "assistant", "content": chat(messages)})
+        except KeyboardInterrupt:
+            print("\n[interrupted]")
+            messages.pop()
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            print(f"\nERROR: {e}")
+            messages.pop()
+    typewriter("END OF LINE.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

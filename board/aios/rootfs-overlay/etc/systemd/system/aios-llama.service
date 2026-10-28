@@ -1,0 +1,25 @@
+[Unit]
+Description=AIOS local model (llama-server)
+After=local-fs.target
+ConditionPathExists=/etc/aios/llama.conf
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/aios-llama
+DynamicUser=yes
+# El modelo se lee desde disco: sin red ni escritura fuera de lo imprescindible.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# El agente y la interfaz tienen prioridad sobre la inferencia.
+Nice=5
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

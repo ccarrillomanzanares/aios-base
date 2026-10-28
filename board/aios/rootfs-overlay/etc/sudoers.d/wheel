@@ -1,0 +1,2 @@
+# AIOS: el grupo wheel administra, con contraseña.
+%wheel ALL=(ALL:ALL) ALL

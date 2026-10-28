@@ -1,0 +1,71 @@
+# AIOS — configuración de sway (sintaxis de i3; atajos heredados de aios-lfs).
+# Cada usuario puede añadir lo suyo en ~/.config/sway/config.d/
+set $mod Mod4
+set $term foot
+font pango:DejaVu Sans Mono 9
+floating_modifier $mod normal
+default_border pixel 1
+default_floating_border pixel 1
+focus_follows_mouse no
+
+# --- Teclado y pantalla --------------------------------------------------------
+input type:keyboard {
+    xkb_layout es
+    repeat_delay 300
+    repeat_rate 30
+}
+input type:touchpad {
+    tap enabled
+    natural_scroll disabled
+}
+output * bg #000000 solid_color
+
+# --- Tema (colores de ventanas y barra) ----------------------------------------
+include /etc/aios/theme/sway.conf
+
+# --- Atajos ---------------------------------------------------------------------
+bindsym $mod+Return exec $term
+bindsym $mod+c exec $term -e aios-chat
+bindsym $mod+d exec wmenu-run -f "DejaVu Sans Mono 10" -N 000000 -n 00ff66 -S 00ff66 -s 000000
+bindsym $mod+Shift+q kill
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+e exec swaymsg exit
+
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+l move right
+
+bindsym $mod+v splitv
+bindsym $mod+b splith
+bindsym $mod+f fullscreen
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+bindsym $mod+Shift+space floating toggle
+
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+
+# --- Arranque: la consola del agente en el espacio 1 ---------------------------
+# Al salir del chat queda una shell en la misma ventana.
+exec $term --title "AIOS" sh -c 'aios-chat; exec bash'
+
+include /etc/sway/config.d/*
+include ~/.config/sway/config.d/*

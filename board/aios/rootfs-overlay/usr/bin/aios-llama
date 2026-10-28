@@ -1,0 +1,46 @@
+#!/bin/sh
+# AIOS — arranca llama-server con /etc/aios/llama.conf (lo llama aios-llama.service).
+set -e
+CONF=/etc/aios/llama.conf
+MODELS=/usr/share/aios/models
+[ -f "$CONF" ] && . "$CONF"
+
+pick() { # pick <patrón find> <excluir mmproj: yes/no>
+    if [ "$2" = yes ]; then
+        find "$MODELS" -maxdepth 1 -name "$1" ! -name '*mmproj*' | sort | head -n1
+    else
+        find "$MODELS" -maxdepth 1 -name "$1" | sort | head -n1
+    fi
+}
+
+if [ -n "$MODEL" ] && [ -f "$MODELS/$MODEL" ]; then
+    model="$MODELS/$MODEL"
+else
+    [ -n "$MODEL" ] && echo "aios-llama: $MODELS/$MODEL not found, autodetecting" >&2
+    model=$(pick '*.gguf' yes)
+fi
+if [ -z "$model" ]; then
+    echo "aios-llama: no model in $MODELS (build with 'make model' first)" >&2
+    exit 1
+fi
+
+if [ -n "$MMPROJ" ] && [ -f "$MODELS/$MMPROJ" ]; then
+    mmproj="$MODELS/$MMPROJ"
+else
+    mmproj=$(pick '*mmproj*.gguf' no)
+fi
+
+threads=${THREADS:-auto}
+if [ "$threads" = auto ]; then
+    threads=$(lscpu -p=Core,Socket 2>/dev/null | grep -v '^#' | sort -u | wc -l)
+    [ "$threads" -gt 0 ] 2>/dev/null || threads=$(nproc)
+fi
+
+set -- -m "$model" \
+    --host "${HOST:-127.0.0.1}" --port "${PORT:-8083}" \
+    -c "${CTX:-16384}" -t "$threads" -np 1 --jinja
+[ -n "$mmproj" ] && set -- "$@" --mmproj "$mmproj"
+
+echo "aios-llama: $(basename "$model")${mmproj:+ + $(basename "$mmproj")}, ctx ${CTX:-16384}, $threads threads"
+# shellcheck disable=SC2086  # EXTRA_ARGS se parte en palabras a propósito
+exec /usr/bin/llama-server "$@" $EXTRA_ARGS

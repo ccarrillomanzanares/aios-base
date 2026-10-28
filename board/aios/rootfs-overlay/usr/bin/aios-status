@@ -1,0 +1,14 @@
+#!/bin/sh
+# AIOS — línea de estado de swaybar: estado del modelo, RAM libre y hora.
+while :; do
+    if curl -fs -m 1 http://127.0.0.1:8083/health >/dev/null 2>&1; then
+        ai="AI ONLINE"
+    elif systemctl -q is-active aios-llama.service; then
+        ai="AI LOADING"
+    else
+        ai="AI OFFLINE"
+    fi
+    mem=$(awk '/^MemAvailable:/ {printf "%.1f", $2/1048576}' /proc/meminfo)
+    echo "$ai | RAM ${mem}G free | $(date '+%a %d %b %H:%M')"
+    sleep 5
+done

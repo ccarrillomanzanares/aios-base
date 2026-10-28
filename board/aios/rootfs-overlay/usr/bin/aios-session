@@ -1,0 +1,26 @@
+#!/bin/sh
+# AIOS — arranca la sesión sway desde tty1 (lo llama ~/.bash_profile).
+# logind (pam_systemd) ya ha creado XDG_RUNTIME_DIR y la sesión; libseat la usa.
+LOG_DIR="$HOME/.local/state/aios"
+mkdir -p "$LOG_DIR"
+
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=sway
+[ -n "$XDG_RUNTIME_DIR" ] || export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+
+# Sin nodo de render (GPU vieja sin driver 3D, QEMU sin virgl): wlroots dibuja
+# con pixman en la CPU. El cursor por hardware falla en virtio-gpu y simpledrm.
+if ! ls /dev/dri/renderD* >/dev/null 2>&1; then
+    export WLR_RENDERER=pixman
+fi
+export WLR_NO_HARDWARE_CURSORS=1
+
+[ -f "$LOG_DIR/sway.log" ] && mv -f "$LOG_DIR/sway.log" "$LOG_DIR/sway.log.old"
+sway > "$LOG_DIR/sway.log" 2>&1
+rc=$?
+
+# Si sway no arranca, se queda una shell en tty1 en vez de un bucle de autologin.
+echo ""
+echo "AIOS: sway exited (code $rc). Log: $LOG_DIR/sway.log"
+echo "Type 'exec aios-session' to retry."
+exec bash

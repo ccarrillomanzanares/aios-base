@@ -1,0 +1,11 @@
+# AIOS — wifi: iwd asocia, networkd pone la dirección (iwd con
+# EnableNetworkConfiguration=false). Ruta peor que la del cable.
+[Match]
+Type=wlan
+
+[Network]
+DHCP=yes
+IgnoreCarrierLoss=3s
+
+[DHCPv4]
+RouteMetric=600

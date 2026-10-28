@@ -1,0 +1,9 @@
+# AIOS — cable: DHCP en cualquier interfaz Ethernet (incluida la virtio de QEMU)
+[Match]
+Type=ether
+
+[Network]
+DHCP=yes
+
+[DHCPv4]
+RouteMetric=100

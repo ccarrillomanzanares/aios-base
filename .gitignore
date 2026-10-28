@@ -3,3 +3,4 @@ models/*.gguf
 *.img
 *.iso
 __pycache__/
+models/*.part
