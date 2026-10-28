@@ -95,9 +95,9 @@ BR2_PACKAGE_IPROUTE2=y
 # wlroots puede dibujar sin GPU (renderizador pixman): sirve en GPU viejas
 # sin driver 3D y en QEMU.
 BR2_PACKAGE_MESA3D=y
-BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_IRIS=y
-BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_CROCUS=y
-BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_I915=y
+# Sin LLVM de momento: iris, crocus e i915 (Intel) lo exigen en mesa 26 y
+# Buildroot descarta iris sin avisar. En Intel, sway dibuja con pixman (CPU).
+# Aceleración 3D de Intel: BR2_PACKAGE_MESA3D_LLVM=y + IRIS (decisión pendiente).
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_R600=y
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_VIRGL=y
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_SOFTPIPE=y

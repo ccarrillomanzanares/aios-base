@@ -30,6 +30,7 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 - Modelo del hito 0: `unsloth/Qwen3.5-4B-GGUF`, cuantización **Q4_K_M (2,74 GB)** + proyector de visión (`mmproj`). Se deja en `models/` (fuera de git) y `post-build.sh` lo copia a `/usr/share/aios/models/`. Raíz ext4 de 7 GB para que quepa.
 - Sesión gráfica: sway (lee configuración de i3) + foot; wlroots con renderizador por software si no hay GPU 3D. libseat usa logind (systemd), sin daemon seatd.
 - Contexto local de 16K; puerto 8083 como en aios-lfs.
+- **mesa sin LLVM** en el hito 0: solo r600, virgl y softpipe. En mesa 26, iris, crocus e i915 (Intel) exigen LLVM, y Buildroot descarta iris sin avisar si falta. En Intel (incluido el HP 15s), sway dibuja con pixman. **Pendiente:** decidir si se activa `BR2_PACKAGE_MESA3D_LLVM` + iris (más tiempo de compilación, y lo pedirá el navegador).
 
 ## Lecciones heredadas de newos (no repetir)
 
