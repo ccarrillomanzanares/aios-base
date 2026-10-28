@@ -11,6 +11,8 @@ BR2_TOOLCHAIN_BUILDROOT_CXX=y
 BR2_KERNEL_HEADERS_AS_KERNEL=y
 BR2_PACKAGE_HOST_LINUX_HEADERS_CUSTOM_6_18=y
 BR2_CCACHE=y
+# Compilación paralela de alto nivel: varios paquetes a la vez (make -jN).
+BR2_PER_PACKAGE_DIRECTORIES=y
 
 # --- Sistema ----------------------------------------------------------------
 BR2_TARGET_GENERIC_HOSTNAME="aios"

@@ -10,6 +10,9 @@ BR_DIR      := $(CURDIR)/build/buildroot
 OUT_DIR     := $(CURDIR)/build/output
 DEFCONFIG   := aios_x86_64_defconfig
 IMAGE       := $(OUT_DIR)/images/aios.img
+# Todos los núcleos: con BR2_PER_PACKAGE_DIRECTORIES Buildroot compila varios
+# paquetes a la vez y reparte el servidor de trabajos (-j) entre ellos.
+JOBS        ?= $(shell nproc)
 BR          := $(MAKE) -C $(BR_DIR) O=$(OUT_DIR) BR2_EXTERNAL=$(CURDIR)
 
 # QEMU: memoria del perfil mínimo; QEMU_DISPLAY=vnc=:1 para un servidor sin pantalla
@@ -28,7 +31,7 @@ QEMU        := qemu-system-x86_64 $(KVM) -m $(QEMU_MEM) -smp $(QEMU_SMP) \
 .PHONY: all model qemu qemu-uefi menuconfig savedefconfig linux-menuconfig clean
 
 all: $(OUT_DIR)/.config
-	$(BR)
+	$(BR) -j$(JOBS)
 
 $(BR_DIR)/Makefile:
 	git clone --depth 1 -b $(BR_VERSION) https://gitlab.com/buildroot.org/buildroot.git $(BR_DIR)
