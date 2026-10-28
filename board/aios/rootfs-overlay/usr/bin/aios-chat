@@ -60,7 +60,7 @@ def wait_for_server():
     """Espera a que llama-server termine de cargar el modelo."""
     if server_ready():
         return True
-    sys.stdout.write("LOADING MODEL ")
+    sys.stdout.write("LOADING MODEL  ")  # el giro reescribe el último carácter
     sys.stdout.flush()
     spin = "|/-\\"
     for i in range(600):  # 5 minutos

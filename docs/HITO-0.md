@@ -1,6 +1,6 @@
 # Hito 0 — La base arranca
 
-**Puerta:** la imagen arranca en QEMU y en el HP 15s, entra sola en una sesión sway con el tema WarGames, y `llama-server` sirve Qwen3.5-4B en `127.0.0.1:8083`.
+**Puerta:** ~~QEMU~~ hecho; falta el HP 15s. La imagen arranca en QEMU y en el HP 15s, entra sola en una sesión sway con el tema WarGames, y `llama-server` sirve Qwen3.5-4B en `127.0.0.1:8083`.
 
 Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 
@@ -20,7 +20,8 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | Red: `systemd-networkd` (cable) + `iwd` (wifi) | Hecho: `20-wired.network`, `25-wireless.network`; iwd solo asocia (`EnableNetworkConfiguration=false`) |
 | `/etc/sudoers.d/wheel`, `/etc/locale.conf`, `/etc/vconsole.conf` (es) | Hecho |
 | `Makefile` (`make`, `make model`, `make qemu`, `make qemu-uefi`) y `scripts/download-model.sh` | Hecho. El `mmproj` se guarda como `Qwen3.5-4B-mmproj-F16.gguf` |
-| Primera compilación y arranque en QEMU | Compila (~1 h 20 min la primera vez en el VPS, 16 vCPU) y arranca: GRUB, kernel, systemd, autologin y red OK. `llama-server` carga Qwen3.5-4B + mmproj y responde en 127.0.0.1:8083 (ggml elige la variante de CPU solo). **sway no arrancaba**: faltaba PAM (sin `pam_systemd` no hay sesión de logind ni asiento para libseat). Añadidos `linux-pam`, el `login` de util-linux y `/etc/pam.d/login`; recompilando |
+| Primera compilación y arranque en QEMU | **Hecho (28 oct).** Compilación desde cero: ~1 h 20 min la primera vez en el VPS (16 vCPU), 27 min con ccache. En QEMU, BIOS y UEFI: GRUB → kernel → systemd → autologin → sway + foot con tema WarGames → `aios-chat` responde en español en streaming. `llama-server` carga Qwen3.5-4B + mmproj en ~30 s; ggml elige la variante de CPU solo; ~3,1 GB de RAM usados con el modelo cargado |
+| Arreglos que salieron al arrancar | PAM (`linux-pam`, `login` de util-linux, `/etc/pam.d/login` con `pam_systemd`): sin él no había sesión de logind y sway no tenía asiento. uid/gid de `aios` fijos en 1000 (en mkusers `-1` es uid de sistema → sesión `user-light` sin `systemd --user`). `LANG` de la sesión desde `locale.conf` con `pam_env` |
 | Arranque en el HP 15s | **Pendiente** |
 
 ## Decisiones ya tomadas
@@ -31,6 +32,13 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 - Sesión gráfica: sway (lee configuración de i3) + foot; wlroots con renderizador por software si no hay GPU 3D. libseat usa logind (systemd), sin daemon seatd.
 - Contexto local de 16K; puerto 8083 como en aios-lfs.
 - **mesa sin LLVM** en el hito 0: solo r600, virgl y softpipe. En mesa 26, iris, crocus e i915 (Intel) exigen LLVM, y Buildroot descarta iris sin avisar si falta. En Intel (incluido el HP 15s), sway dibuja con pixman. **Pendiente:** decidir si se activa `BR2_PACKAGE_MESA3D_LLVM` + iris (más tiempo de compilación, y lo pedirá el navegador).
+
+## Lecciones de este hito
+
+- Kconfig descarta en silencio las opciones cuyas dependencias faltan (pasó con `MESA3D_GALLIUM_DRIVER_IRIS` sin LLVM). Tras tocar el defconfig, comprobar que cada `BR2_...=y` sigue en `build/output/.config`.
+- Con `BR2_PER_PACKAGE_DIRECTORIES`, cambiar la configuración de un paquete base (systemd, PAM) exige compilar desde cero (`make clean all`); con ccache son ~30 min.
+- En `users.txt` de Buildroot 2026.08, uid `-1` = sistema y `-2` = usuario normal. Mejor fijarlo.
+- QEMU en el VPS va sin KVM: la velocidad del modelo ahí (~0,4 tok/s) no dice nada; medir en hardware real.
 
 ## Lecciones heredadas de newos (no repetir)
 
