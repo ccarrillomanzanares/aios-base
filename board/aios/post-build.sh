@@ -37,6 +37,15 @@ else
     echo "post-build: AVISO: no hay modelos en models/ (ejecuta 'make model')"
 fi
 
+# --- Versión del código con que se genera la imagen ---------------------------
+# 'aios update code' parte de este commit para saber qué ha cambiado.
+{
+    echo "COMMIT=$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+    git -C "$ROOT_DIR" diff --quiet HEAD 2>/dev/null && echo "DIRTY=no" || echo "DIRTY=yes"
+    echo "DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "$TARGET_DIR/etc/aios/build-info"
+echo "post-build: build-info $(head -1 "$TARGET_DIR/etc/aios/build-info")"
+
 # --- aios-diag: token del receptor ------------------------------------------
 # El token no va en git: se lee de local/diag.token si existe.
 if [ -f "$ROOT_DIR/local/diag.token" ]; then

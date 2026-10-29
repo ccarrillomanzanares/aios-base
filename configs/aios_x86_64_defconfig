@@ -61,6 +61,8 @@ BR2_PACKAGE_LINUX_FIRMWARE_BRCM_BCM43XX=y
 
 # --- systemd ----------------------------------------------------------------
 BR2_PACKAGE_SYSTEMD_LOGIND=y
+# Guarda el brillo de la pantalla al apagar y lo restaura al arrancar
+BR2_PACKAGE_SYSTEMD_BACKLIGHT=y
 # PAM con pam_systemd: sin él el login no abre sesión en logind y sway no
 # consigue asiento (libseat: "Could not get primary session").
 BR2_PACKAGE_LINUX_PAM=y
@@ -90,6 +92,8 @@ BR2_PACKAGE_CA_CERTIFICATES=y
 BR2_PACKAGE_LIBCURL=y
 BR2_PACKAGE_LIBCURL_CURL=y
 BR2_PACKAGE_OPENSSH=y
+# 'aios update code': actualiza scripts y configuración desde el repositorio
+BR2_PACKAGE_GIT=y
 BR2_PACKAGE_ZSTD=y
 
 # --- Red: cable con networkd, wifi con iwd ----------------------------------
