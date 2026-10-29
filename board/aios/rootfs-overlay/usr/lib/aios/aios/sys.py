@@ -15,7 +15,7 @@ import time
 import urllib.request
 import wave
 
-from . import audio, voice
+from . import audio, thermal, voice
 from .result import Result
 
 SYSFS = os.environ.get("AIOS_SYSFS", "/sys")
@@ -241,7 +241,7 @@ def resample(src, dst):
 
 
 TESTS = [("cpu", t_cpu), ("gpu", t_gpu), ("displays", t_displays), ("backlight", t_backlight),
-         ("battery", t_battery), ("wifi", t_wifi), ("bluetooth", t_bluetooth), ("sound", t_sound),
+         ("battery", t_battery), ("thermal", lambda: thermal.selftest_check()), ("wifi", t_wifi), ("bluetooth", t_bluetooth), ("sound", t_sound),
          ("model", t_model), ("voice", t_voice)]
 
 
@@ -266,8 +266,9 @@ def selftest(args):
 
 
 def register(sub):
-    p = sub.add_parser("sys", help="system: hardware self-test")
+    p = sub.add_parser("sys", help="system: hardware self-test, temperature")
     s = p.add_subparsers(dest="action", required=True)
     t = s.add_parser("selftest", help="test the hardware of this computer (plays a short beep)")
     t.add_argument("--only", help="comma-separated tests: " + ",".join(n for n, _ in TESTS))
     t.set_defaults(func=selftest)
+    s.add_parser("thermal", help="CPU temperature and thermal throttling").set_defaults(func=thermal.thermal)

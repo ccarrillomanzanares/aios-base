@@ -60,7 +60,7 @@ TOOLS = [
             "e.g. 'ui brightness 80' for 80% | ui brightness up|down: one small step\n"
             "- ui display list | ui display extend | ui display mirror\n"
             "- bt status | bt scan | bt connect <name>\n"
-            "- sys selftest: test the hardware\n"
+            "- sys selftest: test the hardware | sys thermal: CPU temperature and throttling\n"
             "- ai status | ai list: providers | ai models [provider]: models it offers\n"
             "- ai use <provider|local> [--model <id>]: switch AI (to add one, tell the user to type /pair)\n"
             "- update code check"),
@@ -76,7 +76,8 @@ TOOLS = [
 # Consultas que el agente puede hacer sin preguntar (no cambian nada)
 READ_ONLY = [("net", "status"), ("net", "wifi", "scan"), ("audio", "status"),
              ("ai", "status"), ("ai", "list"), ("ai", "models"), ("update", "code", "check"),
-             ("ui", "display", "list"), ("bt", "status"), ("bt", "scan"), ("sys", "selftest")]
+             ("ui", "display", "list"), ("bt", "status"), ("bt", "scan"), ("sys", "selftest"),
+             ("sys", "thermal")]
 VALID_HINT = ("Valid commands: net status, net wifi scan, net wifi connect <ssid>, "
               "audio status, audio volume <n>, ui brightness [n], ui display list, bt status, "
               "sys selftest, ai status, update code check")
