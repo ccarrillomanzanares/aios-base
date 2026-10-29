@@ -1,0 +1,12 @@
+config BR2_PACKAGE_MAKO
+	bool "mako"
+	depends on BR2_PACKAGE_WAYLAND
+	depends on BR2_PACKAGE_SYSTEMD
+	select BR2_PACKAGE_CAIRO
+	select BR2_PACKAGE_PANGO
+	select BR2_PACKAGE_WAYLAND_PROTOCOLS
+	help
+	  Notificaciones de escritorio para sway (las de las aplicaciones y
+	  los avisos de AIOS: batería baja, actualizaciones...).
+
+	  https://github.com/emersion/mako

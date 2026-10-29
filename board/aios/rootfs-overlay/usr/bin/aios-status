@@ -15,7 +15,7 @@ import time
 import urllib.request
 
 sys.path.insert(0, os.environ.get("AIOS_LIB", "/usr/lib/aios"))
-from aios import ai as aiconf, audio, net, voice  # noqa: E402
+from aios import ai as aiconf, audio, net, notify, voice  # noqa: E402
 
 SYSFS = os.environ.get("AIOS_SYSFS", "/sys")
 LLAMA = "http://127.0.0.1:{}/health".format(os.environ.get("AIOS_LLAMA_PORT", "8083"))
@@ -50,6 +50,24 @@ def network():
     return "NET OFF"
 
 
+ALERTED = {}  # batería -> último umbral avisado (10, 5)
+
+
+def battery_alert(name, cap, st):
+    """Aviso de batería baja: notificación y en voz alta, una vez por umbral."""
+    if st == "Charging" or cap > 15:
+        ALERTED.pop(name, None)
+        return
+    for level, urgency in ((5, "critical"), (10, "normal")):
+        if cap <= level and ALERTED.get(name, 100) > level:
+            ALERTED[name] = level
+            notify.send(f"Battery low: {cap}%", "Plug in the charger.", urgency)
+            lang = os.environ.get("LANG", "en")[:2]
+            voice.speak(f"Batería baja: {cap} por ciento." if lang == "es" else
+                        f"Battery low: {cap} percent.", lang)
+            break
+
+
 def battery():
     out = []
     for bat in sorted(glob.glob(os.path.join(SYSFS, "class", "power_supply", "BAT*"))):
@@ -59,6 +77,10 @@ def battery():
         except OSError:
             continue
         mark = {"Charging": "+", "Full": ""}.get(st, "")
+        try:
+            battery_alert(bat, int(cap), st)
+        except ValueError:
+            pass
         out.append(f"BAT {cap}%{mark}")
     return " ".join(out)
 

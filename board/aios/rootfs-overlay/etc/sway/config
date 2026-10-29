@@ -80,6 +80,20 @@ bindsym Print exec aios-screenshot
 bindsym --no-repeat $mod+space exec aios-voice start
 bindsym --release $mod+space exec aios-voice stop
 
+# Bloquear la pantalla a mano
+bindsym $mod+Ctrl+l exec swaylock -f
+
+# --- Inactividad y bloqueo -----------------------------------------------------
+# Bloquea a los 5 min, apaga la pantalla a los 10 y bloquea siempre antes de
+# suspender (tapa cerrada). Tema en /etc/swaylock/config.
+exec swayidle -w \
+    timeout 300 'swaylock -f' \
+    timeout 600 'swaymsg "output * power off"' resume 'swaymsg "output * power on"' \
+    before-sleep 'swaylock -f'
+
+# --- Notificaciones (mako, tema en /etc/xdg/mako/config) ---------------------------
+exec mako
+
 # --- Arranque: la consola del agente en el espacio 1 ---------------------------
 # Al salir del chat queda una shell en la misma ventana.
 exec $term --title "AIOS" sh -c 'aios-firstboot; aios-chat; exec bash'

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""AIOS — primer arranque: contraseña propia y red. Lo lanza sway antes del
-chat mientras no exista ~/.local/state/aios/firstboot-done.
+"""AIOS — primer arranque: idioma, teclado, zona horaria, contraseña propia y
+red. Lo lanza sway antes del chat mientras no exista
+~/.local/state/aios/firstboot-done. Intro deja cada valor como está.
 
 La imagen sale con aios/aios y root/aios: contraseñas que conoce cualquiera,
 con sudo. Aquí se cambia la de aios y se bloquea root (se administra con
@@ -36,6 +37,86 @@ def ask(prompt, default=""):
     return ans or default
 
 
+SUDO_PASSWORD = DEFAULT_PASSWORD  # cambia si el usuario pone la suya
+
+LANGUAGES = [("es_ES.UTF-8", "Español"), ("en_US.UTF-8", "English"), ("ca_ES.UTF-8", "Català"),
+             ("fr_FR.UTF-8", "Français"), ("de_DE.UTF-8", "Deutsch"), ("it_IT.UTF-8", "Italiano"),
+             ("pt_PT.UTF-8", "Português")]
+# (distribución xkb de sway, mapa de la consola de texto, nombre)
+KEYBOARDS = [("es", "es", "Español (España)"), ("latam", "la-latin1", "Español (Latinoamérica)"),
+             ("us", "us", "English (US)"), ("gb", "uk", "English (UK)"), ("fr", "fr", "Français"),
+             ("de", "de", "Deutsch"), ("it", "it", "Italiano"), ("pt", "pt-latin1", "Português")]
+TIMEZONES = ["Europe/Madrid", "Atlantic/Canary", "Europe/Lisbon", "Europe/London", "Europe/Paris",
+             "Europe/Berlin", "Europe/Rome", "America/Mexico_City", "America/Bogota",
+             "America/Argentina/Buenos_Aires", "America/New_York", "UTC"]
+ZONEINFO = "/usr/share/zoneinfo"
+
+
+def pick(title, items, current):
+    """Lista numerada; devuelve el índice elegido o None (Intro = dejarlo)."""
+    for i, label in enumerate(items, 1):
+        print(f'{i:>2}  {label}{"   <- now" if label == current else ""}')
+    while True:
+        ans = ask(f"{title} (number, Enter to keep): ")
+        if not ans:
+            return None
+        if ans.isdigit() and 1 <= int(ans) <= len(items):
+            return int(ans) - 1
+        print("Not in the list.")
+
+
+def write_root_file(path, content):
+    ok, err = sudo(["sh", "-c", f"cat > {path}"], SUDO_PASSWORD, content)
+    if not ok:
+        print(f"Could not write {path}: {err}")
+    return ok
+
+
+def set_language():
+    say("LANGUAGE")
+    cur = os.environ.get("LANG", "")
+    i = pick("Language", [n for _, n in LANGUAGES], next((n for c, n in LANGUAGES if c == cur), ""))
+    if i is not None and write_root_file("/etc/locale.conf", f"LANG={LANGUAGES[i][0]}\n"):
+        print(f"{LANGUAGES[i][1]}: applied at the next login.")
+
+
+def set_keyboard():
+    say("KEYBOARD")
+    conf = os.path.expanduser("~/.config/sway/config.d/10-aios-keyboard.conf")
+    try:
+        cur = open(conf).read().split("xkb_layout")[1].split()[0]
+    except (OSError, IndexError):
+        cur = "es"
+    i = pick("Keyboard", [n for _, _, n in KEYBOARDS], next((n for x, _, n in KEYBOARDS if x == cur), ""))
+    if i is None:
+        return
+    xkb, console, name = KEYBOARDS[i]
+    os.makedirs(os.path.dirname(conf), exist_ok=True)
+    with open(conf, "w") as f:
+        f.write(f"# AIOS — teclado elegido en el primer arranque\ninput type:keyboard xkb_layout {xkb}\n")
+    subprocess.run(["swaymsg", "input", "type:keyboard", "xkb_layout", xkb], capture_output=True)
+    write_root_file("/etc/vconsole.conf", f"KEYMAP={console}\n")
+    print(f"{name}: applied.")
+
+
+def set_timezone():
+    say("TIME ZONE")
+    try:
+        cur = os.path.relpath(os.path.realpath("/etc/localtime"), ZONEINFO)
+    except ValueError:
+        cur = ""
+    print(f"Now: {cur}  ({time.strftime('%H:%M')})")
+    i = pick("Time zone", TIMEZONES + ["Other (type its name)"], cur)
+    if i is None:
+        return
+    tz = TIMEZONES[i] if i < len(TIMEZONES) else ask("Name, e.g. America/Lima: ")
+    if not tz or not os.path.isfile(os.path.join(ZONEINFO, tz)):
+        print("Unknown time zone; left as it was.")
+        return
+    ok, err = sudo(["ln", "-sf", os.path.join(ZONEINFO, tz), "/etc/localtime"], SUDO_PASSWORD)
+    print(f"{tz}: applied." if ok else f"Could not change it: {err}")
+
+
 def sudo(args, password, stdin_rest=""):
     """sudo -S: la primera línea de la entrada es la contraseña de sudo."""
     p = subprocess.run(["sudo", "-S", "-p", "", *args], input=f"{password}\n{stdin_rest}",
@@ -44,13 +125,14 @@ def sudo(args, password, stdin_rest=""):
 
 
 def set_password():
-    say("STEP 1 OF 2: PASSWORD")
+    global SUDO_PASSWORD
+    say("PASSWORD")
     print(f'This computer still uses the default password "{DEFAULT_PASSWORD}", which anyone knows.')
     while True:
         if ask("Choose your own password now? [Y/n] ", "y").lower() not in ("y", "yes", "s", "si", "sí"):
             print("Skipped. You can do it later with: passwd")
             return False
-        current = DEFAULT_PASSWORD
+        current = SUDO_PASSWORD
         new = getpass.getpass("New password: ")
         if len(new) < MIN_LEN:
             print(f"Too short: at least {MIN_LEN} characters.")
@@ -66,6 +148,7 @@ def set_password():
         if not ok:
             print(f"Could not change it: {err or 'wrong current password'}")
             continue
+        SUDO_PASSWORD = new
         locked, _ = sudo(["passwd", "-l", "root"], new)
         print("Password changed." + (" The root account is locked; use sudo." if locked else ""))
         return True
@@ -80,7 +163,7 @@ def aios(*args):
 
 
 def network():
-    say("STEP 2 OF 2: NETWORK")
+    say("NETWORK")
     st = aios("net", "status")
     if st.get("ok"):
         print("Already connected to the Internet.")
@@ -120,11 +203,11 @@ def main():
         return 0
     os.system("clear")
     say("AIOS FIRST START", 0.05)
-    print("Two quick steps. Press Enter to accept, or skip any of them.\n")
+    print("A few quick questions. Press Enter to keep what is there.\n")
     try:
-        set_password()
-        print()
-        network()
+        for step in (set_language, set_keyboard, set_timezone, set_password, network):
+            step()
+            print()
     except KeyboardInterrupt:
         print("\nSkipped. Run it again with: aios-firstboot --force")
     os.makedirs(os.path.dirname(FLAG), exist_ok=True)

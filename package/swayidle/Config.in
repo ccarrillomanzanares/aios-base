@@ -1,0 +1,10 @@
+config BR2_PACKAGE_SWAYIDLE
+	bool "swayidle"
+	depends on BR2_PACKAGE_WAYLAND
+	depends on BR2_PACKAGE_SYSTEMD
+	select BR2_PACKAGE_WAYLAND_PROTOCOLS
+	help
+	  Acciones por inactividad (bloquear, apagar la pantalla) y antes de
+	  suspender (tapa cerrada), vía logind.
+
+	  https://github.com/swaywm/swayidle

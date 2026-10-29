@@ -64,6 +64,13 @@ for f in "$HOME"/.local/state/aios/*.log "$HOME"/.local/state/aios/*.log.old; do
     [ -f "$f" ] && cp "$f" "$dir/" 2>/dev/null
 done
 
+# --- Autoprueba del hardware (se oye un pitido: altavoz -> micrófono) --------
+echo "AIOS diag: testing the hardware (you will hear a short beep)..."
+RUN_TIMEOUT=300
+run selftest.txt aios sys selftest
+RUN_TIMEOUT=20
+grep -E "^(OK|WARN|FAIL) " "$dir/selftest.txt" | sed 's/^/  /'
+
 # --- Sonido ------------------------------------------------------------------
 run audio.txt sh -c 'aios audio status; echo; wpctl status; echo; cat /proc/asound/cards;
     echo; aplay -l; echo; arecord -l; echo; systemctl --user status pipewire pipewire-pulse wireplumber --no-pager'

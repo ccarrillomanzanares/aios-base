@@ -41,6 +41,12 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | Primer arranque | `aios-firstboot` antes del chat: contraseña propia (vía `chpasswd`, nunca en la línea de órdenes) y bloqueo de root; wifi si no hay red. Marca en `~/.local/state/aios/firstboot-done` |
 | Actualizaciones firmadas | `aios update code` por defecto en el canal `release`: solo etiquetas `v*` firmadas con SSH (clave en `/etc/aios/update-signers`; la privada en el VPS, `~/.ssh/aios-release`), nunca baja de versión. `CHANNEL=main` para desarrollo, sin firma. `scripts/release.sh vX.Y.Z` firma una versión |
 | `make test` | `tests/run.py`: fase native (binarios de la imagen en el VPS: agente con herramientas, `look`, voz, proveedor externo) y vm (QEMU snapshot: `tests/vm-checks.sh` por consola serie con wifi virtual, sonido grabado por QEMU, capturas, diag, actualización, primer arranque). Resultados en `build/test-results/` |
+| Pantallas | `aios ui display list/on/off/mode/scale/extend/mirror`: swaymsg; cada elección se guarda por monitor (marca, modelo, serie) en `~/.config/sway/config.d/50-aios-displays.conf`; nunca apaga la última pantalla; duplicar con `wl-mirror` (paquete propio) |
+| Bloqueo e inactividad | `swaylock` + `swayidle` (paquetes propios): bloqueo a los 5 min, pantalla apagada a los 10, bloqueo antes de suspender (tapa). Super+Ctrl+L. Tema en `/etc/swaylock/config` |
+| Notificaciones | `mako` (paquete propio), tema en `/etc/xdg/mako/config`; `aios/notify.py` por D-Bus estándar. Batería baja al 10 % y 5 %: notificación y aviso hablado, una vez por umbral |
+| Bluetooth | BlueZ (cliente, audio, HID, HOG) + firmware Intel, Realtek, MediaTek y Qualcomm. `aios bt status/on/off/scan/connect/disconnect/remove` por D-Bus; emparejar en modo Just Works (teclados con PIN, pendiente). Los auriculares salen solos en PipeWire |
+| Primer arranque completo | Idioma (`/etc/locale.conf`), teclado (sway al momento + consola), zona horaria, contraseña y red. Locales generados: es, en, ca, fr, de, it, pt |
+| Autoprueba de hardware | `aios sys selftest` (y dentro de `aios-diag`): CPU, GPU, pantallas, brillo, batería con desgaste, wifi, Bluetooth, sonido (tono de 1 kHz por el altavoz buscado en lo que graba el micrófono, Goertzel), modelo y voz (espeak → whisper, con tiempo) |
 | Arranque en el HP 15s | **Pendiente** |
 
 ## Decisiones ya tomadas
@@ -55,6 +61,9 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 
 ## Ideas apuntadas (sin hacer)
 
+
+- Velocidad del modelo (pospuesto): guardar en disco la caché del prompt fijo (sistema + herramientas) y probar decodificación especulativa con un modelo de borrador pequeño. Medir en el HP.
+- Instalador a disco con `/home` en partición propia (hito 4): el USB es solo para pruebas.
 
 ## Lecciones de este hito
 

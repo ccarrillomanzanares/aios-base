@@ -2,7 +2,7 @@
 import argparse
 import sys
 
-from . import ai, audio, net, ui, update
+from . import ai, audio, bt, net, sys as aios_sys, ui, update
 from .result import fail
 
 
@@ -21,7 +21,9 @@ def main(argv=None):
     sub = p.add_subparsers(dest="space", required=True)
     ai.register(sub)
     audio.register(sub)
+    bt.register(sub)
     net.register(sub)
+    aios_sys.register(sub)
     ui.register(sub)
     update.register(sub)
     argv = list(sys.argv[1:] if argv is None else argv)

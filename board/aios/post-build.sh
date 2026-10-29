@@ -109,7 +109,7 @@ echo "post-build: sonido: $(ls "$TARGET_DIR/etc/alsa/conf.d" 2>/dev/null | tr '\
 WANTS="$TARGET_DIR/etc/systemd/system/multi-user.target.wants"
 mkdir -p "$WANTS"
 ln -sf /etc/systemd/system/aios-llama.service "$WANTS/aios-llama.service"
-for unit in iwd.service systemd-networkd.service systemd-resolved.service; do
+for unit in iwd.service systemd-networkd.service systemd-resolved.service bluetooth.service; do
     for d in usr/lib/systemd/system lib/systemd/system; do
         if [ -f "$TARGET_DIR/$d/$unit" ]; then
             ln -sf "/$d/$unit" "$WANTS/$unit"

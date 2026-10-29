@@ -86,8 +86,10 @@ def brightness(args):
 
 
 def register(sub):
-    p = sub.add_parser("ui", help="interface: screen brightness")
+    p = sub.add_parser("ui", help="interface: brightness and displays")
     s = p.add_subparsers(dest="action", required=True)
     b = s.add_parser("brightness", help="show or set the screen brightness")
     b.add_argument("level", nargs="?", help="up, down or a percentage (5-100)")
     b.set_defaults(func=brightness)
+    from . import display  # pantallas: aios ui display ...
+    display.register(s)
