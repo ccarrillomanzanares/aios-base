@@ -197,6 +197,10 @@ aios remind cancel "$id2" >/dev/null && [ "$(st "$id2")" = cancelled ] && ! syst
 python3 -c "import json; d=json.load(open('$R')); d.append({'id':'old001','when':'2020-01-01 00:00:00','text':'perdido'}); json.dump(d, open('$R','w'))"
 aios remind restore >/dev/null && [ "$(st old001)" = missed ] && pass remind-restore || fail remind-restore "$(st old001)"
 
+# --- Memoria: swap comprimida en RAM ------------------------------------------------------
+grep -q '^/dev/zram0' /proc/swaps && [ "$(cat /proc/sys/vm/swappiness)" = 150 ] && pass zram-swap || \
+    fail zram-swap "$(cat /proc/swaps | tail -1) swappiness=$(cat /proc/sys/vm/swappiness)"
+
 # --- Temperatura y energía -------------------------------------------------------------
 c=$(aios sys thermal --json | jcode); { [ "$c" = OK ] || [ "$c" = THERMAL_NO_SENSOR ]; } && pass sys-thermal || fail sys-thermal "$c"
 aios sys power --json | grep -q '"on_ac": true' && pass power-on-ac || fail power-on-ac "$(aios sys power 2>&1)"

@@ -1,0 +1,16 @@
+[Unit]
+Description=AIOS compressed swap in RAM (zram)
+Documentation=file:/usr/bin/aios-zram
+DefaultDependencies=no
+After=local-fs.target
+Before=swap.target aios-llama.service
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/aios-zram start
+ExecStop=/usr/bin/aios-zram stop
+
+[Install]
+WantedBy=swap.target

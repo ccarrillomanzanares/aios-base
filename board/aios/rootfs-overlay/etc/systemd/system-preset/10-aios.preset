@@ -13,6 +13,9 @@ enable aios-power.service
 # Comprobación diaria de actualizaciones: avisa, nunca instala sola
 enable aios-update-check.timer
 
+# Swap comprimida en RAM: el modelo ocupa casi toda la memoria de un portátil de 8 GB
+enable aios-zram.service
+
 # Sonido: PipeWire y WirePlumber corren como servicios de usuario de aios
 # (post-build.sh). Los de sistema abrían la tarjeta antes y el de usuario se
 # quedaba sin micrófono (HP 15s, 29 oct).
