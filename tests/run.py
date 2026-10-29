@@ -341,6 +341,14 @@ def vm():
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         procs.append(subprocess.Popen(["python3", "-B", f"{ROOT}/tests/mock_openai.py", str(mport)],
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        # Receptor de emparejamiento (aios ai pair) como el del VPS
+        pport = free_port()
+        os.makedirs(f"{tmp}/diag")
+        open(f"{tmp}/diag.token", "w").write("token-de-prueba-0123456789")
+        procs.append(subprocess.Popen(["python3", "-I", f"{ROOT}/scripts/diag-server.py", "--port", str(pport),
+                                       "--dir", f"{tmp}/diag", "--token-file", f"{tmp}/diag.token",
+                                       "--public-url", f"http://10.0.2.2:{pport}"],
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         ser, mon, wav = f"{tmp}/serial.sock", f"{tmp}/monitor.sock", f"{RESULTS}/vm-audio.wav"
         kvm = ["-enable-kvm", "-cpu", "host"] if os.access("/dev/kvm", os.W_OK) else []
         # Sin KVM cada CPU virtual es un hilo del VPS: más CPU, prueba más rápida.
@@ -373,7 +381,7 @@ def vm():
         s.wait(rb"\$ $", 60)
         s.buf = b""
         s.send(f"curl -s http://10.0.2.2:{hport}/vm-checks.sh | HOST=10.0.2.2 GITPORT={hport} "
-               f"MOCKPORT={mport} sh 2>&1; echo CHECKS-END")
+               f"MOCKPORT={mport} PAIRPORT={pport} sh 2>&1; echo CHECKS-END")
         s.wait(rb"\nCHECKS-END\r?\n", 2400)  # \n delante: no el eco de la orden
         out = s.text()
         open(f"{RESULTS}/vm-checks.txt", "w").write(out)

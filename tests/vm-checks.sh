@@ -60,6 +60,37 @@ aios net wifi scan | grep -q AIOS-TEST && pass wifi-scan || fail wifi-scan "AIOS
 S ls /var/lib/iwd | grep -q AIOS-TEST && fail wifi-no-residue "profile saved after failure" || pass wifi-no-residue
 r=$(aios net wifi connect AIOS-TEST --password testpass123 --json); [ "$(echo "$r" | jcode)" = OK ] && pass wifi-connect || fail wifi-connect "$r"
 python3 -c "import runpy; print(runpy.run_path('/usr/bin/aios-status')['line']())" | grep -q "WIFI AIOS-TEST" && pass bar-wifi || fail bar-wifi "bar"
+# El agente conecta: la contraseña se teclea sin eco (primero mala, luego buena) y el
+# modelo no la ve. Se olvida la red para que la pida.
+iwctl station wlan0 disconnect; iwctl known-networks AIOS-TEST forget
+cat > /tmp/wifi-drive.py <<'PYEOF'
+import os, pty, re, sys, time
+pid, fd = pty.fork()
+if pid == 0:
+    os.execvp("python3", ["python3", "-c", "import importlib.machinery as M, importlib.util as U, json\n"
+        "l=M.SourceFileLoader('c','/usr/bin/aios-chat'); m=U.module_from_spec(U.spec_from_loader('c',l)); l.exec_module(m)\n"
+        "print('RESULT', json.dumps(m.run_aios('net wifi connect \"aios test\" --password delmodelo')))"])
+out = b""
+def wait(pat, t=180):
+    global out
+    end = time.time() + t
+    while time.time() < end:
+        try:
+            out += os.read(fd, 4096)
+        except OSError:
+            break
+        if re.search(pat, out):
+            return
+    print("TIMEOUT", pat, out.decode(errors="replace")[-300:]); sys.exit(1)
+wait(rb'Password for wifi "AIOS-TEST"'); os.write(fd, b"malamala1\n")
+wait(rb'Wrong password\. Password for wifi'); os.write(fd, b"testpass123\n")
+wait(rb"RESULT .*\n")
+text = out.decode(errors="replace")
+print("SHOWN" if "testpass123" in text or "malamala1" in text else "HIDDEN")
+print(text[text.index("RESULT"):].splitlines()[0])
+PYEOF
+r=$(python3 /tmp/wifi-drive.py 2>&1)
+echo "$r" | grep -q HIDDEN && echo "$r" | grep -q '"code": "OK"' && pass agent-wifi-password || fail agent-wifi-password "$(echo "$r" | tail -2 | tr '\n' ' ')"
 check wifi-disconnect aios net wifi disconnect
 
 # --- Sonido ------------------------------------------------------------------------
@@ -182,6 +213,50 @@ export WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-1}
 printf 'texto copiado ñ' | wl-copy && [ "$(wl-paste --no-newline)" = "texto copiado ñ" ] && pass clipboard || fail clipboard "$(wl-paste 2>&1 | head -1)"
 # Solo pulsa y suelta Mayús: no escribe nada en la ventana del chat
 wtype -M shift -m shift && pass dictate-wtype || fail dictate-wtype "virtual keyboard refused"
+
+# --- Emparejamiento de un proveedor (aios ai pair) de punta a punta ---------------------------
+# El "navegador" cifra la clave con openssl, como WebCrypto (RSA-OAEP SHA-256)
+[ -n "$PAIRPORT" ] && [ -n "$MOCKPORT" ] && {
+cat > /tmp/pair-drive.py <<'PYEOF'
+import base64, json, os, pty, re, subprocess, sys, time, urllib.request
+host, pport, mport = sys.argv[1:4]
+srv = f"http://{host}:{pport}/aios-diag/pair"
+pid, fd = pty.fork()
+if pid == 0:
+    os.execvp("aios", ["aios", "ai", "pair", "--server", srv])
+out = b""
+def wait(pat, t=120):
+    global out
+    end = time.time() + t
+    while time.time() < end:
+        try:
+            out += os.read(fd, 4096)
+        except OSError:
+            break
+        m = re.search(pat, out)
+        if m:
+            return m
+    print("TIMEOUT", pat, out.decode(errors="replace")[-300:]); sys.exit(1)
+code = wait(rb"code\s+([A-Z0-9]{3}-[A-Z0-9]{3})").group(1).decode().replace("-", "")
+pub = json.load(urllib.request.urlopen(f"{srv}/key?c={code}"))["pubkey"]
+open("/tmp/pub.pem", "w").write(pub)
+enc = subprocess.run(["openssl", "pkeyutl", "-encrypt", "-pubin", "-inkey", "/tmp/pub.pem",
+                      "-pkeyopt", "rsa_padding_mode:oaep", "-pkeyopt", "rsa_oaep_md:sha256",
+                      "-pkeyopt", "rsa_mgf1_md:sha256"], input=b"secreto123", capture_output=True, check=True).stdout
+body = {"code": code, "key_enc": base64.b64encode(enc).decode(), "provider": {
+    "name": "paired", "label": "Test server", "url": f"http://{host}:{mport}/v1", "key_header": "X-API-Key"}}
+urllib.request.urlopen(urllib.request.Request(f"{srv}/submit", data=json.dumps(body).encode(),
+                                              headers={"Content-Type": "application/json"}))
+wait(rb"Name for this provider \[paired\]: "); os.write(fd, b"\n")
+wait(rb"Use it now\? \[Y/n\] "); os.write(fd, b"y\n")
+wait(rb"Continue\? \[y/N\] "); os.write(fd, b"y\n")
+wait(rb'Using "paired"')
+print("PAIRED")
+PYEOF
+r=$(python3 /tmp/pair-drive.py "$HOST" "$PAIRPORT" "$MOCKPORT" 2>&1)
+echo "$r" | grep -q PAIRED && aios ai list | grep -q "paired" && pass ai-pair-flow || fail ai-pair-flow "$(echo "$r" | tail -2 | tr '\n' ' ')"
+aios ai use local >/dev/null; aios ai remove paired >/dev/null
+}
 
 # --- Recordatorios ------------------------------------------------------------------------
 R=$HOME/.local/share/aios/reminders.json
