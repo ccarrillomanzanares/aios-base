@@ -63,6 +63,9 @@ TOOLS = [
             "- sys selftest: test the hardware | sys thermal: CPU temperature and throttling\n"
             "- ai status | ai list: providers | ai models [provider]: models it offers\n"
             "- ai use <provider|local> [--model <id>]: switch AI (to add one, tell the user to type /pair)\n"
+            "- remind add <when> <text>: reminder/alarm, spoken and on screen; when = 10m, 2h, "
+            "1h30m, 18:30, 'tomorrow 9:00' or '2026-10-30 09:00' (quote it if it has spaces)\n"
+            "- remind list | remind cancel <id>\n"
             "- update code check"),
         "parameters": {"type": "object", "properties": {
             "command": {"type": "string", "description": "e.g. 'net wifi scan'"}},
@@ -77,7 +80,8 @@ TOOLS = [
 READ_ONLY = [("net", "status"), ("net", "wifi", "scan"), ("audio", "status"),
              ("ai", "status"), ("ai", "list"), ("ai", "models"), ("update", "code", "check"),
              ("ui", "display", "list"), ("bt", "status"), ("bt", "scan"), ("sys", "selftest"),
-             ("sys", "thermal")]
+             ("sys", "thermal"),
+             ("remind", "add"), ("remind", "list"), ("remind", "cancel")]
 VALID_HINT = ("Valid commands: net status, net wifi scan, net wifi connect <ssid>, "
               "audio status, audio volume <n>, ui brightness [n], ui display list, bt status, "
               "sys selftest, ai status, update code check")

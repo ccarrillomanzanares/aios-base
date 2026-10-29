@@ -2,7 +2,7 @@
 import argparse
 import sys
 
-from . import ai, audio, bt, net, sys as aios_sys, ui, update
+from . import ai, audio, bt, net, remind, sys as aios_sys, ui, update
 from .result import fail
 
 
@@ -19,7 +19,7 @@ def build_parser():
     p = Parser(prog="aios", description="AIOS system command line")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     sub = p.add_subparsers(dest="space", required=True)
-    for space in (ai, audio, bt, net, aios_sys, ui, update):
+    for space in (ai, audio, bt, net, remind, aios_sys, ui, update):
         space.register(sub)
     return p
 

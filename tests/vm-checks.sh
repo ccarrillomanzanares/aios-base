@@ -177,6 +177,20 @@ python3 -c 'import locale; locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")' 2>/de
     S aios update code apply --confirm "$tok" >/dev/null && [ "$(aios-test-update 2>/dev/null)" = "update OK" ] && pass update-apply || fail update-apply "?"
     S aios update code rollback >/dev/null && ! command -v aios-test-update >/dev/null && pass update-rollback || fail update-rollback "?"
 }
+# --- Recordatorios ------------------------------------------------------------------------
+R=$HOME/.local/share/aios/reminders.json
+st() { python3 -c "import json,sys; print([r.get('done') for r in json.load(open('$R')) if r['id']==sys.argv[1]][0])" "$1"; }
+id1=$(aios remind add 3s "prueba de recordatorio" --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip().splitlines()[-1])["data"].get("id"))')
+id2=$(aios remind add 1h "otro" --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip().splitlines()[-1])["data"].get("id"))')
+sleep 10
+[ "$(st "$id1")" = fired ] && pass remind-fires || fail remind-fires "state $(st "$id1"); $(systemctl --user status "aios-remind-$id1" --no-pager 2>&1 | tail -3 | tr '\n' ' ')"
+aios remind list | grep -q "otro" && pass remind-list || fail remind-list "?"
+aios remind cancel "$id2" >/dev/null && [ "$(st "$id2")" = cancelled ] && ! systemctl --user -q is-active "aios-remind-$id2.timer" && pass remind-cancel || fail remind-cancel "?"
+[ "$(aios remind add ayer x --json | jcode)" = REMIND_BAD_TIME ] && pass remind-bad-time || fail remind-bad-time "?"
+# Apagado cuando tocaba: al entrar en la sesión avisa como perdido
+python3 -c "import json; d=json.load(open('$R')); d.append({'id':'old001','when':'2020-01-01 00:00:00','text':'perdido'}); json.dump(d, open('$R','w'))"
+aios remind restore >/dev/null && [ "$(st old001)" = missed ] && pass remind-restore || fail remind-restore "$(st old001)"
+
 # --- Temperatura y energía -------------------------------------------------------------
 c=$(aios sys thermal --json | jcode); { [ "$c" = OK ] || [ "$c" = THERMAL_NO_SENSOR ]; } && pass sys-thermal || fail sys-thermal "$c"
 aios sys power --json | grep -q '"on_ac": true' && pass power-on-ac || fail power-on-ac "$(aios sys power 2>&1)"

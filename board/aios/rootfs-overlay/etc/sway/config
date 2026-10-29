@@ -93,6 +93,8 @@ exec swayidle -w \
 
 # --- Notificaciones (mako, tema en /etc/xdg/mako/config) ---------------------------
 exec mako
+# Recordatorios: rehace los temporizadores tras reiniciar y avisa de los perdidos
+exec sleep 3 && aios remind restore
 
 # --- Arranque: la consola del agente en el espacio 1 ---------------------------
 # Al salir del chat queda una shell en la misma ventana.
