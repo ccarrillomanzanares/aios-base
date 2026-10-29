@@ -22,10 +22,11 @@ dir="$work/$name"
 mkdir -p "$dir"
 trap 'rm -rf "$work"' EXIT
 
-# run <fichero> <orden...>: guarda salida y errores; nada puede colgar la recogida
+# run <fichero> <orden...>: guarda salida y errores; nada puede colgar la
+# recogida (límite RUN_TIMEOUT segundos, 20 por defecto)
 run() {
     out="$dir/$1"; shift
-    { echo "\$ $*"; timeout 20 "$@" 2>&1; echo "[exit $?]"; } > "$out"
+    { echo "\$ $*"; timeout "${RUN_TIMEOUT:-20}" "$@" 2>&1; echo "[exit $?]"; } > "$out"
 }
 copy() { # copy <origen> <destino en el paquete>
     [ -r "$1" ] && cp "$1" "$dir/$2" 2>/dev/null
@@ -68,6 +69,20 @@ run llama.txt sh -c 'systemctl status aios-llama --no-pager; echo;
     journalctl -b -u aios-llama --no-pager -n 300; echo;
     curl -s -m 5 http://127.0.0.1:8083/health; echo'
 copy /etc/aios/llama.conf llama.conf
+
+# Velocidad del modelo en este equipo: una respuesta corta; "timings" trae
+# tokens/s de lectura del prompt (prompt_per_second) y de generación
+# (predicted_per_second). Se salta si llama-server no está listo.
+if curl -s -m 5 http://127.0.0.1:8083/health 2>/dev/null | grep -q '"ok"'; then
+    echo "AIOS diag: measuring model speed (up to 3 min)..."
+    RUN_TIMEOUT=200
+    run bench.txt curl -s -m 180 http://127.0.0.1:8083/completion \
+        -H "Content-Type: application/json" \
+        -d "{\"prompt\": \"Explain in three sentences what an operating system does.\", \"n_predict\": ${BENCH_TOKENS:-64}, \"cache_prompt\": false}"
+    RUN_TIMEOUT=20
+    speed=$(grep -o '"predicted_per_second":[0-9.]*' "$dir/bench.txt" | cut -d: -f2 | cut -c1-5)
+    [ -n "$speed" ] && echo "AIOS diag: model speed: $speed tokens/s"
+fi
 run models.txt ls -l /usr/share/aios/models
 
 # --- Red (sin secretos: /var/lib/iwd guarda las claves wifi y no se toca) ----

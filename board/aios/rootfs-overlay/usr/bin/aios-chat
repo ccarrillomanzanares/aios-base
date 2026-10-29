@@ -9,6 +9,7 @@ import os
 import random
 import readline  # noqa: F401  (historial y edición de línea en input())
 import sys
+import termios
 import time
 import urllib.error
 import urllib.request
@@ -46,6 +47,25 @@ def typewriter(text, delay=TYPE_DELAY, end="\n"):
             time.sleep(delay)
     sys.stdout.write(end)
     sys.stdout.flush()
+
+
+class NoEcho:
+    """Sin eco mientras sale la intro y carga el modelo: lo tecleado antes de
+    tiempo no se pinta sobre el giro; readline lo recoge luego en el prompt."""
+
+    def __enter__(self):
+        try:
+            self.saved = termios.tcgetattr(sys.stdin)
+            attrs = termios.tcgetattr(sys.stdin)
+            attrs[3] &= ~termios.ECHO
+            termios.tcsetattr(sys.stdin, termios.TCSANOW, attrs)
+        except (termios.error, ValueError, OSError):
+            self.saved = None
+        return self
+
+    def __exit__(self, *exc):
+        if self.saved is not None:
+            termios.tcsetattr(sys.stdin, termios.TCSANOW, self.saved)
 
 
 def server_ready():
@@ -113,12 +133,14 @@ def chat(messages):
 
 def main():
     os.system("clear")
-    typewriter("AIOS LOCAL TERMINAL")
-    typewriter("LOGON: aios")
-    print()
-    typewriter(random.choice(QUOTES).upper(), delay=0.05)
-    print()
-    if not wait_for_server():
+    with NoEcho():
+        typewriter("AIOS LOCAL TERMINAL")
+        typewriter("LOGON: aios")
+        print()
+        typewriter(random.choice(QUOTES).upper(), delay=0.05)
+        print()
+        ready = wait_for_server()
+    if not ready:
         return 1
     print("Type a message. /clear starts over, /exit quits.\n")
 
