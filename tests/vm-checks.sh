@@ -270,7 +270,9 @@ aios remind cancel "$id2" >/dev/null && [ "$(st "$id2")" = cancelled ] && ! syst
 [ "$(aios remind add ayer x --json | jcode)" = REMIND_BAD_TIME ] && pass remind-bad-time || fail remind-bad-time "?"
 # Apagado cuando tocaba: al entrar en la sesión avisa como perdido
 python3 -c "import json; d=json.load(open('$R')); d.append({'id':'old001','when':'2020-01-01 00:00:00','text':'perdido'}); json.dump(d, open('$R','w'))"
-aios remind restore >/dev/null && [ "$(st old001)" = missed ] && pass remind-restore || fail remind-restore "$(st old001)"
+# (lo terminado hace más de una semana se limpia en la misma pasada: se mira lo que devuelve)
+m=$(aios remind restore --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip().splitlines()[-1])["data"].get("missed"))')
+[ "$m" = 1 ] && pass remind-restore || fail remind-restore "missed=$m"
 
 # --- Memoria: swap comprimida en RAM ------------------------------------------------------
 grep -q '^/dev/zram0' /proc/swaps && [ "$(cat /proc/sys/vm/swappiness)" = 150 ] && pass zram-swap || \

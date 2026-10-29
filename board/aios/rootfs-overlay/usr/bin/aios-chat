@@ -187,11 +187,15 @@ def warm_prefix():
     """Deja en el modelo local el prompt fijo (sistema + herramientas) ya procesado.
 
     Se pinta la conversación con la plantilla del servidor y se corta antes del
-    turno del usuario: ese prefijo es igual en todas las conversaciones. Su
-    estado se guarda en disco (aios-llama --slot-save-path) con un nombre que
-    depende del modelo y del prefijo; si ya existe, se restaura (milisegundos)
-    en vez de procesarlo (~50 s en el HP 15s). Si algo falla, no pasa nada: el
-    primer mensaje lo procesa como siempre.
+    turno del usuario: ese prefijo es igual en todas las conversaciones. Se
+    procesa en segundo plano al abrir el chat, mientras el usuario escribe
+    (~50 s en el HP 15s que ya no espera el primer mensaje).
+
+    Además se intenta guardar su estado en disco (aios-llama --slot-save-path)
+    para restaurarlo en milisegundos tras reiniciar. llama.cpp b8117 no lo
+    permite con el proyector de visión cargado (501 "not supported by
+    multimodal"), que en AIOS siempre lo está: hoy solo vale sin --mmproj.
+    Si algo falla, no pasa nada: el primer mensaje lo procesa como siempre.
     """
     try:
         props = json.load(urllib.request.urlopen(BASE + "/props", timeout=5))

@@ -77,7 +77,7 @@ Hechas mientras el usuario dormía, a petición suya, **fuera de la imagen publi
 | Recordatorios (4) | `aios remind add/list/cancel`, temporizadores de usuario con hora absoluta, aviso en pantalla y voz, `restore` al entrar en sway (avisa de los perdidos); el agente los crea sin confirmación |
 | Portapapeles (5) y dictado (3) | Paquetes propios `wl-clipboard` 2.3.0 y `wtype` 0.5. Herramienta `clipboard` del agente (con proveedor remoto pregunta antes de enviar); dictado con Super+Ctrl+Espacio (`aios-voice dictate`) |
 | Swap en RAM | `aios-zram.service`: zram de la mitad de la RAM (≤ 8 GiB), swappiness 150 |
-| Prompt fijo guardado | `aios-chat` restaura de `/var/cache/aios-llama/slots` el estado de sistema + herramientas (o lo procesa y guarda). Medido: restaurar 10 ms; primer mensaje 17 tokens en vez de 902 |
+| Prompt fijo procesado de antemano | `aios-chat` procesa sistema + herramientas en segundo plano al abrirse, mientras el usuario escribe: el primer mensaje procesa ~15 tokens en vez de ~900 (en el HP 15s, ~50 s menos de espera). Guardarlo en disco para que dure entre reinicios (restaurar: 10 ms) **no funciona con el proyector de visión cargado**: llama.cpp b8117 responde 501 «not supported by multimodal», y en AIOS siempre lo está. Queda intentado (`--slot-save-path`); funcionará si una versión nueva de llama.cpp lo admite o si se separa la visión |
 | Batería y memoria | Tiempo restante en la barra; suspensión al 3 % sin cargador; `OOMScoreAdjust=500` en el modelo |
 | Diag y pruebas | Diag con swap/zram, temperatura, energía y recordatorios. QEMU: emparejamiento de punta a punta y wifi del agente con contraseña sin eco; native: llama-server como `aios-llama` y caché del prompt |
 

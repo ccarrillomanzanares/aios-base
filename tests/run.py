@@ -237,8 +237,10 @@ def native():
             processed = json.loads(r.stdout.strip().splitlines()[-1])["prompt_n"]
         except (ValueError, IndexError, KeyError):
             processed = None
-        report("prefix-cache", bool(saved) and processed is not None and processed < 60,
-               f"saved={len(saved)} processed={processed} {r.stderr[-200:]}")
+        # Con --mmproj, llama.cpp no guarda estados en disco (501): se exige lo que
+        # sí vale, el prefijo ya procesado antes del primer mensaje
+        report("prefix-warm", processed is not None and processed < 60,
+               f"processed={processed} saved_to_disk={len(saved)} {r.stderr[-200:]}")
     except (IndexError, OSError) as e:
         report("native-setup", False, str(e))
     finally:
@@ -380,8 +382,11 @@ def vm():
         s.send("aios")
         s.wait(rb"\$ $", 60)
         s.buf = b""
-        s.send(f"curl -s http://10.0.2.2:{hport}/vm-checks.sh | HOST=10.0.2.2 GITPORT={hport} "
-               f"MOCKPORT={mport} PAIRPORT={pport} sh 2>&1; echo CHECKS-END")
+        # Descargado a un fichero y con la entrada en /dev/null: con 'curl | sh', una
+        # orden que lea la entrada estándar se come un trozo del propio guion
+        s.send(f"curl -s -o /tmp/vm-checks.sh http://10.0.2.2:{hport}/vm-checks.sh && HOST=10.0.2.2 "
+               f"GITPORT={hport} MOCKPORT={mport} PAIRPORT={pport} sh /tmp/vm-checks.sh </dev/null 2>&1; "
+               f"echo CHECKS-END")
         s.wait(rb"\nCHECKS-END\r?\n", 2400)  # \n delante: no el eco de la orden
         out = s.text()
         open(f"{RESULTS}/vm-checks.txt", "w").write(out)
