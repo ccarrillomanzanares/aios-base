@@ -1,3 +1,6 @@
-# Paquetes propios de AIOS (vacío en el hito 0).
-# Cada paquete nuevo: package/<nombre>/Config.in + <nombre>.mk, y una línea aquí:
-# source "$BR2_EXTERNAL_AIOS_PATH/package/<nombre>/Config.in"
+# Paquetes propios de AIOS. Cada paquete nuevo: package/<nombre>/Config.in +
+# <nombre>.mk (+ .hash), y una línea aquí.
+source "$BR2_EXTERNAL_AIOS_PATH/package/alsa-ucm-conf/Config.in"
+source "$BR2_EXTERNAL_AIOS_PATH/package/grim/Config.in"
+source "$BR2_EXTERNAL_AIOS_PATH/package/sof-bin/Config.in"
+source "$BR2_EXTERNAL_AIOS_PATH/package/whisper-cpp/Config.in"

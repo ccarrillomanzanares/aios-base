@@ -120,6 +120,33 @@ BR2_PACKAGE_MESA3D_GBM=y
 BR2_PACKAGE_MESA3D_OPENGL_EGL=y
 BR2_PACKAGE_MESA3D_OPENGL_ES=y
 BR2_PACKAGE_SEATD=y
+
+# --- Sonido: PipeWire para todas las aplicaciones -------------------------------
+# Nativas (PipeWire), ALSA (pipewire-alsa: dispositivo "default") y PulseAudio
+# (pipewire-pulse; libpulse de pulseaudio para las apps que la cargan, sin su
+# demonio). WirePlumber gestiona dispositivos. SOF + UCM: el DSP y los
+# micrófonos digitales de los portátiles Intel (el HP 15s es Ice Lake).
+BR2_PACKAGE_ALSA_LIB=y
+BR2_PACKAGE_ALSA_LIB_UCM=y
+BR2_PACKAGE_ALSA_UTILS=y
+BR2_PACKAGE_ALSA_UTILS_AMIXER=y
+BR2_PACKAGE_ALSA_UTILS_APLAY=y
+BR2_PACKAGE_ALSA_UTILS_ALSAUCM=y
+BR2_PACKAGE_ALSA_UTILS_SPEAKER_TEST=y
+BR2_PACKAGE_ALSA_UCM_CONF=y
+BR2_PACKAGE_SOF_BIN=y
+BR2_PACKAGE_PIPEWIRE=y
+BR2_PACKAGE_LIBSNDFILE=y
+BR2_PACKAGE_LUA=y
+BR2_PACKAGE_LUA_5_4=y
+BR2_PACKAGE_WIREPLUMBER=y
+BR2_PACKAGE_PULSEAUDIO=y
+
+# --- Voz y pantalla: reconocimiento (whisper), síntesis (espeak), capturas ------
+BR2_PACKAGE_WHISPER_CPP=y
+BR2_PACKAGE_ESPEAK=y
+BR2_PACKAGE_ESPEAK_AUDIO_BACKEND_NONE=y
+BR2_PACKAGE_GRIM=y
 BR2_PACKAGE_SWAY=y
 BR2_PACKAGE_SWAY_SWAYBAR=y
 BR2_PACKAGE_FOOT=y
