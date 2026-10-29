@@ -19,6 +19,16 @@ export WLR_NO_HARDWARE_CURSORS=1
 sway > "$LOG_DIR/sway.log" 2>&1
 rc=$?
 
+# Hay nodo de render pero mesa no trae driver para esa GPU (Intel sin iris en
+# el hito 0): EGL falla y sway sale. Se reintenta con pixman.
+if [ $rc -ne 0 ] && [ -z "$WLR_RENDERER" ] &&
+   grep -q "Failed to create renderer" "$LOG_DIR/sway.log"; then
+    mv -f "$LOG_DIR/sway.log" "$LOG_DIR/sway-egl.log"
+    export WLR_RENDERER=pixman
+    sway > "$LOG_DIR/sway.log" 2>&1
+    rc=$?
+fi
+
 # Si sway no arranca, se queda una shell en tty1 en vez de un bucle de autologin.
 echo ""
 echo "AIOS: sway exited (code $rc). Log: $LOG_DIR/sway.log"
