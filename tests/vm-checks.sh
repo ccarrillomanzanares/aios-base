@@ -14,6 +14,10 @@ check() { # check <nombre> <orden...>: PASS si la orden sale con 0
 }
 jcode() { python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip().splitlines()[-1]).get("code"))'; }
 
+# La VM sin KVM es lenta: swayidle bloquearía la sesión a los 5 min y sway no
+# deja capturar una pantalla bloqueada. En pausa durante las comprobaciones.
+pkill -STOP -x swayidle
+
 # --- Sistema --------------------------------------------------------------------
 [ -z "$(systemctl --failed --no-legend)" ] && pass services-ok || fail services-ok "$(systemctl --failed --no-legend | tr '\n' ' ')"
 [ "$(systemctl is-active sshd)" != active ] && pass sshd-off || fail sshd-off "sshd is running"
@@ -44,6 +48,9 @@ S modprobe mac80211_hwsim radios=2 && sleep 4
 printf '[Match]\nName=wlan1\n[Network]\nAddress=192.168.80.1/24\nDHCPServer=yes\n' > /tmp/ap.network
 S mkdir -p /run/systemd/network && S cp /tmp/ap.network /run/systemd/network/10-aios-test-ap.network
 S networkctl reload; iwctl device wlan1 set-property Mode ap; sleep 2
+# El servidor DHCP del punto de acceso de prueba está en esta misma VM: el
+# cortafuegos (solo cliente) bloquearía sus peticiones. Abierto solo en wlan1.
+S nft add rule inet aios input iifname wlan1 udp dport 67 accept
 iwctl ap wlan1 start AIOS-TEST testpass123; sleep 2; S networkctl reconfigure wlan1; sleep 3
 aios net wifi scan | grep -q AIOS-TEST && pass wifi-scan || fail wifi-scan "AIOS-TEST not found"
 [ "$(aios net wifi connect AIOS-TEST --json | jcode)" = WIFI_NEEDS_PASSWORD ] && pass wifi-needs-password || fail wifi-needs-password "?"
@@ -89,7 +96,7 @@ ls /lib/firmware/intel/sof/sof-icl.ri >/dev/null 2>&1 && ls /usr/share/alsa/ucm2
 # La VM es lenta: swayidle ya habrá apagado la pantalla y grim no tendría qué copiar
 SWAYSOCK=$(ls /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -1) swaymsg 'output * power on' >/dev/null
 sleep 3  # hasta que sway pinte un fotograma, grim falla ("failed to copy output")
-f=$(aios-screenshot) && [ -s "$f" ] && pass screenshot || fail screenshot "$f"
+f=$(aios-screenshot) && [ -s "$f" ] && pass screenshot || fail screenshot "$f locked=$(pgrep -x swaylock >/dev/null && echo yes || echo no)"
 aios-diag --local > /tmp/diag.out 2>&1
 t=$(sed -n 's/.*saved \(\/tmp\/[^ ]*\.tar\.gz\).*/\1/p' /tmp/diag.out)
 [ -n "$t" ] && gzip -dc "$t" | tar -tf - | grep -q 'screenshots/aios-' && pass diag-screenshots || fail diag-screenshots "$(tail -2 /tmp/diag.out)"
@@ -165,4 +172,5 @@ python3 -c 'import locale; locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")' 2>/de
     S aios update code apply --confirm "$tok" >/dev/null && [ "$(aios-test-update 2>/dev/null)" = "update OK" ] && pass update-apply || fail update-apply "?"
     S aios update code rollback >/dev/null && ! command -v aios-test-update >/dev/null && pass update-rollback || fail update-rollback "?"
 }
+pkill -CONT -x swayidle
 echo "CHECKS DONE"
