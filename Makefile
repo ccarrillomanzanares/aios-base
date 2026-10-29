@@ -3,6 +3,7 @@
 #   make model      descarga Qwen3.5-4B a models/ (antes de 'make')
 #   make qemu       arranca la imagen en QEMU (BIOS); 'make qemu-uefi' con OVMF
 #   make test       pruebas: binarios de la imagen aquí + la imagen en QEMU
+#                   (AIOS_TEST_SMP=N: CPU de la VM, 12 por defecto)
 #   make menuconfig / savedefconfig / linux-menuconfig
 #   make clean      borra build/output (no la descarga de Buildroot)
 

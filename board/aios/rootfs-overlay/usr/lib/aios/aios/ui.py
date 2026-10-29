@@ -4,6 +4,7 @@ El brillo se cambia con logind (Session.SetBrightness), que lo permite al
 usuario de la sesión activa sin root ni reglas de udev. AIOS_SYSFS cambia la
 raíz de /sys para las pruebas.
 """
+import argparse
 import os
 import subprocess
 
@@ -85,11 +86,26 @@ def brightness(args):
     return Result(True, "OK", dev, text=f"Brightness: {pct}%")
 
 
+def level_arg(v):
+    """up, down o un porcentaje 0-100: lo demás es error de uso, y así el agente
+    lo sabe antes de pedir confirmación (un 800 se recortaba a 100 sin avisar)."""
+    w = v.strip().lower()
+    if w in ("up", "down"):
+        return w
+    try:
+        n = int(w.rstrip("%"))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"'{v}' is not up, down or a percentage 0-100") from None
+    if not 0 <= n <= 100:
+        raise argparse.ArgumentTypeError(f"{n} is not a percentage: use 0-100 (e.g. 80)")
+    return str(n)
+
+
 def register(sub):
     p = sub.add_parser("ui", help="interface: brightness and displays")
     s = p.add_subparsers(dest="action", required=True)
     b = s.add_parser("brightness", help="show or set the screen brightness")
-    b.add_argument("level", nargs="?", help="up, down or a percentage (5-100)")
+    b.add_argument("level", nargs="?", type=level_arg, help="up, down or a percentage (5-100)")
     b.set_defaults(func=brightness)
     from . import display  # pantallas: aios ui display ...
     display.register(s)

@@ -165,7 +165,7 @@ def native():
             (rb"tok/s\]\s*\r?\n\s*> $", "/exit")], timeout=600)
         open(f"{RESULTS}/native-agent.txt", "w").write(out)
         report("agent-reads-with-tool", "[aios ui brightness]" in out and "50" in out, "no tool call or no 50%")
-        report("agent-asks-before-change", "Run 'aios ui brightness 80" in out, "no confirmation prompt")
+        report("agent-asks-before-change", "Run 'aios ui brightness 80'" in out, "no confirmation prompt")
         now = int(open(f"{sysfs}/brightness").read())
         report("agent-change-applied", now == 800, f"brightness is {now}")
         report("chat-history-saved", bool(glob.glob(f"{tmp}/.local/share/aios/chats/*.json")), "no history file")
@@ -319,7 +319,10 @@ def vm():
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         ser, mon, wav = f"{tmp}/serial.sock", f"{tmp}/monitor.sock", f"{RESULTS}/vm-audio.wav"
         kvm = ["-enable-kvm", "-cpu", "host"] if os.access("/dev/kvm", os.W_OK) else []
-        qemu = subprocess.Popen(["qemu-system-x86_64", *kvm, "-m", "6G", "-smp", "4",
+        # Sin KVM cada CPU virtual es un hilo del VPS: más CPU, prueba más rápida.
+        # 12 de 16 por defecto: en el VPS corre también el llama de llama-hardened.
+        smp = os.environ.get("AIOS_TEST_SMP", "12")
+        qemu = subprocess.Popen(["qemu-system-x86_64", *kvm, "-m", "6G", "-smp", smp,
                                  "-drive", f"file={IMAGE},format=raw,if=virtio,snapshot=on",
                                  # dos pantallas: extender, duplicar, apagar una
                                  "-device", "virtio-vga,max_outputs=2", "-display", "none",
