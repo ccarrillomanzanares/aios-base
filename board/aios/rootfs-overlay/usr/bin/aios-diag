@@ -42,7 +42,13 @@ echo "AIOS diag: collecting..."
 run system.txt sh -c 'cat /etc/os-release; echo; uname -a; echo; uptime; echo;
     cat /proc/cmdline; echo; [ -d /sys/firmware/efi ] && echo "boot: UEFI" || echo "boot: BIOS"'
 run cpu.txt lscpu
-run memory.txt sh -c 'free -h; echo; cat /proc/meminfo'
+run memory.txt sh -c 'free -h; echo; cat /proc/swaps; echo; cat /sys/block/zram0/mm_stat 2>/dev/null;
+    echo; cat /proc/meminfo'
+# Temperatura, estrangulamiento y perfil de energía (el modelo calienta la CPU)
+run power.txt sh -c 'aios sys thermal; echo; aios sys power; echo;
+    for p in /sys/devices/system/cpu/cpufreq/policy0/*; do printf "%s: " "${p##*/}"; cat "$p" 2>/dev/null || echo; done;
+    echo; cat /run/aios/llama-power.conf 2>/dev/null; systemctl status aios-power --no-pager 2>&1 | tail -5'
+run reminders.txt aios remind list
 run disks.txt sh -c 'lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS; echo; df -h'
 run pci.txt lspci -nnk
 run usb.txt lsusb
