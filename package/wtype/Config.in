@@ -1,0 +1,10 @@
+config BR2_PACKAGE_WTYPE
+	bool "wtype"
+	depends on BR2_PACKAGE_WAYLAND
+	select BR2_PACKAGE_LIBXKBCOMMON
+	help
+	  Escribe texto en la ventana que tenga el foco, como un teclado
+	  virtual (protocolo virtual-keyboard de wlroots). Lo usa el
+	  dictado de AIOS (aios-voice dictate).
+
+	  https://github.com/atx/wtype

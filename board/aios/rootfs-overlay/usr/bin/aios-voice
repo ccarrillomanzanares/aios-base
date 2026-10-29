@@ -3,13 +3,36 @@
 
   aios-voice start            empieza a grabar (al pulsar)
   aios-voice stop             para, transcribe y lo manda al chat (al soltar)
+  aios-voice dictate          para, transcribe y lo escribe en la ventana activa
+                              (Super+Ctrl+Espacio: dictado en cualquier aplicación)
   aios-voice transcribe FILE  solo transcribe un WAV (pruebas)
 """
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.environ.get("AIOS_LIB", "/usr/lib/aios"))
-from aios import voice  # noqa: E402
+from aios import notify, voice  # noqa: E402
+
+
+def dictate():
+    """Escribe lo dictado en la ventana que tenga el foco (wtype)."""
+    wav = voice.stop()
+    if not wav:
+        return 0
+    notify.send("Dictation", "Transcribing...", "low", timeout_ms=3000)
+    try:
+        text, _ = voice.transcribe(wav)
+    except (RuntimeError, OSError) as e:
+        notify.send("Dictation failed", str(e))
+        return 1
+    if not text:
+        return 0
+    p = subprocess.run(["wtype", "--", text + " "], capture_output=True, text=True, timeout=60)
+    if p.returncode != 0:
+        notify.send("Dictation failed", p.stderr.strip() or "wtype failed")
+        return 1
+    return 0
 
 
 def main():
@@ -17,6 +40,8 @@ def main():
     if cmd == "start":
         voice.start()
         return 0
+    if cmd == "dictate":
+        return dictate()
     if cmd in ("stop", "transcribe"):
         wav = voice.stop() if cmd == "stop" else (sys.argv[2] if len(sys.argv) > 2 else None)
         if not wav:

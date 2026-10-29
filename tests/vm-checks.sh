@@ -177,6 +177,12 @@ python3 -c 'import locale; locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")' 2>/de
     S aios update code apply --confirm "$tok" >/dev/null && [ "$(aios-test-update 2>/dev/null)" = "update OK" ] && pass update-apply || fail update-apply "?"
     S aios update code rollback >/dev/null && ! command -v aios-test-update >/dev/null && pass update-rollback || fail update-rollback "?"
 }
+# --- Portapapeles y dictado (wl-clipboard, wtype) ------------------------------------------
+export WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-1}
+printf 'texto copiado ñ' | wl-copy && [ "$(wl-paste --no-newline)" = "texto copiado ñ" ] && pass clipboard || fail clipboard "$(wl-paste 2>&1 | head -1)"
+# Solo pulsa y suelta Mayús: no escribe nada en la ventana del chat
+wtype -M shift -m shift && pass dictate-wtype || fail dictate-wtype "virtual keyboard refused"
+
 # --- Recordatorios ------------------------------------------------------------------------
 R=$HOME/.local/share/aios/reminders.json
 st() { python3 -c "import json,sys; print([r.get('done') for r in json.load(open('$R')) if r['id']==sys.argv[1]][0])" "$1"; }

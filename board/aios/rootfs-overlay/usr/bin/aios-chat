@@ -43,7 +43,8 @@ SYSTEM = (
     "For anything about this computer (network and wifi, sound, screen brightness, "
     "AI settings, updates) use the aios tool and base your answer on its JSON result; "
     "never invent results. If a result has a hint, follow it or tell the user. "
-    "Use the look tool when the user asks about what is on the screen."
+    "Use the look tool when the user asks about what is on the screen, and the clipboard "
+    "tool when they mention what they copied or want something copied."
 )
 TOOLS = [
     {"type": "function", "function": {
@@ -70,6 +71,15 @@ TOOLS = [
         "parameters": {"type": "object", "properties": {
             "command": {"type": "string", "description": "e.g. 'net wifi scan'"}},
             "required": ["command"]}}},
+    {"type": "function", "function": {
+        "name": "clipboard",
+        "description": ("Read the text the user has copied (action 'get'), or copy a text so the "
+                        "user can paste it (action 'set'). Use it when the user mentions what they "
+                        "copied or asks you to copy something."),
+        "parameters": {"type": "object", "properties": {
+            "action": {"type": "string", "enum": ["get", "set"]},
+            "text": {"type": "string", "description": "for 'set': the text to copy"}},
+            "required": ["action"]}}},
     {"type": "function", "function": {
         "name": "look",
         "description": "Look at the user's screen and answer a question about it.",
@@ -439,6 +449,33 @@ def run_look(question, sess):
         return {"ok": False, "code": "LOOK_NO_SCREEN", "data": {"error": str(e)}}
 
 
+CLIP_MAX = 8000  # caracteres del portapapeles que ve el modelo
+
+
+def run_clipboard(args, sess):
+    env = dict(os.environ)
+    env.setdefault("WAYLAND_DISPLAY", "wayland-1")
+    if args.get("action") == "set":
+        text = str(args.get("text") or "")
+        print(f"{DIM}[clipboard: copy {len(text)} characters]{RESET}")
+        p = subprocess.run(["wl-copy", "--", text], capture_output=True, text=True, env=env, timeout=10)
+        return ({"ok": True, "data": {"copied": len(text)}} if p.returncode == 0 else
+                {"ok": False, "code": "CLIPBOARD_FAILED", "data": {"error": p.stderr.strip()}})
+    p = subprocess.run(["wl-paste", "--no-newline", "--type", "text"], capture_output=True,
+                       text=True, env=env, timeout=10)
+    if p.returncode != 0:
+        return {"ok": False, "code": "CLIPBOARD_EMPTY", "data": {"error": p.stderr.strip()},
+                "hint": "Tell the user to copy the text first (Ctrl+C)."}
+    text = p.stdout
+    print(f"{DIM}[clipboard: {len(text)} characters]{RESET}")
+    if not sess.provider["local"] and not ask_yes(
+            f'Send what you copied ({len(text)} characters) to {sess.provider["name"]}?'):
+        return {"ok": False, "code": "USER_DECLINED", "data": {},
+                "hint": "The user did not allow sending the clipboard."}
+    cut = len(text) > CLIP_MAX
+    return {"ok": True, "data": {"text": text[:CLIP_MAX], "truncated": cut, "characters": len(text)}}
+
+
 def run_tool(call, sess):
     try:
         args = json.loads(call["arguments"] or "{}")
@@ -446,6 +483,8 @@ def run_tool(call, sess):
         args = {}
     if call["name"] == "aios":
         res = run_aios(str(args.get("command", "")))
+    elif call["name"] == "clipboard":
+        return json.dumps(run_clipboard(args, sess), ensure_ascii=False)  # el texto ya va recortado
     elif call["name"] == "look":
         res = run_look(str(args.get("question") or "Describe the screen."), sess)
     else:

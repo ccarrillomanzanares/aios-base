@@ -1,0 +1,9 @@
+config BR2_PACKAGE_WL_CLIPBOARD
+	bool "wl-clipboard"
+	depends on BR2_PACKAGE_WAYLAND
+	select BR2_PACKAGE_WAYLAND_PROTOCOLS
+	help
+	  wl-copy y wl-paste: el portapapeles de Wayland. Lo usa la
+	  herramienta 'clipboard' del agente ("resume lo que he copiado").
+
+	  https://github.com/bugaevc/wl-clipboard

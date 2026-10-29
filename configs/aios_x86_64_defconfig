@@ -155,6 +155,9 @@ BR2_PACKAGE_SWAYLOCK=y
 BR2_PACKAGE_SWAYIDLE=y
 BR2_PACKAGE_MAKO=y
 BR2_PACKAGE_WL_MIRROR=y
+# Portapapeles para el agente y dictado en cualquier ventana
+BR2_PACKAGE_WL_CLIPBOARD=y
+BR2_PACKAGE_WTYPE=y
 
 # --- Bluetooth: auriculares y altavoces (PipeWire), teclados y ratones ------------
 BR2_PACKAGE_BLUEZ5_UTILS=y

@@ -80,6 +80,10 @@ bindsym Print exec aios-screenshot
 bindsym --no-repeat $mod+space exec aios-voice start
 bindsym --release $mod+space exec aios-voice stop
 
+# Dictar en cualquier aplicación: mantener Super+Ctrl+Espacio, hablar y soltar
+bindsym --no-repeat $mod+Ctrl+space exec aios-voice start
+bindsym --release $mod+Ctrl+space exec aios-voice dictate
+
 # Bloquear la pantalla a mano
 bindsym $mod+Ctrl+l exec swaylock -f
 
