@@ -6,6 +6,7 @@ sale de aios.net, el mismo código que 'aios net status'. AIOS_SYSFS cambia la
 raíz de /sys para las pruebas.
 """
 import glob
+import locale
 import os
 import subprocess
 import sys
@@ -74,6 +75,10 @@ def line():
 
 
 def main():
+    try:  # fecha en el idioma del sistema (jue 29 oct), como hacía 'date'
+        locale.setlocale(locale.LC_TIME, "")
+    except locale.Error:
+        pass
     while True:
         print(line(), flush=True)
         time.sleep(5)
