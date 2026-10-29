@@ -1,0 +1,4 @@
+# AIOS — servicios que no arrancan solos. sshd: el usuario aios tiene
+# contraseña conocida y sudo; con SSH activo, cualquiera en la misma red podría
+# entrar. Quien lo necesite: sudo systemctl enable --now sshd (solo con claves).
+disable sshd.service

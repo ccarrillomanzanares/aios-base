@@ -71,6 +71,12 @@ done
 # resolv.conf gestionado por systemd-resolved
 ln -sf ../run/systemd/resolve/stub-resolv.conf "$TARGET_DIR/etc/resolv.conf"
 
+# --- SSH: desactivado (preset 10-aios.preset) y, si se activa, solo con claves
+if [ -f "$TARGET_DIR/etc/ssh/sshd_config" ]; then
+    sed -i -E 's/^#?(PasswordAuthentication|KbdInteractiveAuthentication) .*/\1 no/; s/^#?PermitRootLogin .*/PermitRootLogin no/' \
+        "$TARGET_DIR/etc/ssh/sshd_config"
+fi
+
 # --- sudo: el grupo wheel administra (con contraseña) ------------------------
 if [ -f "$TARGET_DIR/etc/sudoers.d/wheel" ]; then
     chmod 0440 "$TARGET_DIR/etc/sudoers.d/wheel"

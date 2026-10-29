@@ -149,6 +149,9 @@ def status(args):
     data = public(p) | {"reachable": ok, "context": context_of(p) if ok else p.get("context")}
     where = "on this computer" if p["local"] else f'remote: {p["url"]}'
     text = f'AI: {p["name"]} ({where}), model {p.get("model")}, context {data["context"]} tokens'
+    if not ok and p["local"] and err == "HTTP 503":
+        return Result(False, "AI_LOADING", data, "Wait a few seconds; the model is loading.",
+                      text=text + "\nThe model is still loading.")
     if not ok:
         return Result(False, "AI_UNREACHABLE", data | {"error": err},
                       "Run: aios ai use local" if not p["local"] else "Run: systemctl status aios-llama",
