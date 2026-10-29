@@ -15,17 +15,30 @@ class Parser(argparse.ArgumentParser):
         raise UsageError(f"{self.prog}: {message}")
 
 
-def main(argv=None):
+def build_parser():
     p = Parser(prog="aios", description="AIOS system command line")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     sub = p.add_subparsers(dest="space", required=True)
-    ai.register(sub)
-    audio.register(sub)
-    bt.register(sub)
-    net.register(sub)
-    aios_sys.register(sub)
-    ui.register(sub)
-    update.register(sub)
+    for space in (ai, audio, bt, net, aios_sys, ui, update):
+        space.register(sub)
+    return p
+
+
+def validate(argv):
+    """None si la orden existe y sus argumentos son válidos; si no, el error.
+    El agente lo usa antes de pedir confirmación: no se pregunta por órdenes
+    que no existen, y el modelo recibe el error para corregirse."""
+    try:
+        build_parser().parse_args([a for a in argv if a != "--json"])
+        return None
+    except UsageError as e:
+        return str(e)
+    except SystemExit:  # --help y similares
+        return "help requested"
+
+
+def main(argv=None):
+    p = build_parser()
     argv = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in argv  # vale en cualquier posición: aios net status --json
     try:

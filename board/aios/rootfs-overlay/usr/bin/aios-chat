@@ -23,6 +23,7 @@ import urllib.request
 
 sys.path.insert(0, os.environ.get("AIOS_LIB", "/usr/lib/aios"))
 from aios import ai as aiconf  # noqa: E402  (proveedor activo: local o externo)
+from aios import cli as aios_cli  # noqa: E402  (validar órdenes antes de ejecutarlas)
 from aios import look as looker  # noqa: E402
 from aios import voice  # noqa: E402
 
@@ -46,11 +47,16 @@ TOOLS = [
     {"type": "function", "function": {
         "name": "aios",
         "description": (
-            "Run an AIOS system command and get its JSON result. Commands: "
-            "net status | net wifi scan | net wifi connect <ssid> [--password <p>] | "
-            "net wifi disconnect | audio status | audio volume [up|down|0-100] [--mic] | "
-            "audio mute [on|off|toggle] [--mic] | audio test | "
-            "ui brightness [up|down|5-100] | ai status | ai list | update code check"),
+            "Run an AIOS system command and get its JSON result. Use ONLY these commands:\n"
+            "- net status: network and Internet state\n"
+            "- net wifi scan | net wifi connect <ssid> --password <p> | net wifi disconnect\n"
+            "- audio status: volume and devices | audio volume <0-100|up|down> | "
+            "audio mute <on|off> | audio test\n"
+            "- ui brightness: read the screen brightness | ui brightness <5-100|up|down>: set it\n"
+            "- ui display list | ui display extend | ui display mirror\n"
+            "- bt status | bt scan | bt connect <name>\n"
+            "- sys selftest: test the hardware\n"
+            "- ai status | update code check"),
         "parameters": {"type": "object", "properties": {
             "command": {"type": "string", "description": "e.g. 'net wifi scan'"}},
             "required": ["command"]}}},
@@ -62,7 +68,11 @@ TOOLS = [
 ]
 # Consultas que el agente puede hacer sin preguntar (no cambian nada)
 READ_ONLY = [("net", "status"), ("net", "wifi", "scan"), ("audio", "status"),
-             ("ai", "status"), ("ai", "list"), ("update", "code", "check")]
+             ("ai", "status"), ("ai", "list"), ("update", "code", "check"),
+             ("ui", "display", "list"), ("bt", "status"), ("bt", "scan"), ("sys", "selftest")]
+VALID_HINT = ("Valid commands: net status, net wifi scan, net wifi connect <ssid> --password <p>, "
+              "audio status, audio volume <n>, ui brightness [n], ui display list, bt status, "
+              "sys selftest, ai status, update code check")
 
 # Frases de películas, como en aios-agent (chat.py)
 QUOTES = [
@@ -292,6 +302,10 @@ def run_aios(command):
     shown = " ".join(shlex.quote(a) if not prev_is_password(args, i) else "******"
                      for i, a in enumerate(args))
     print(f"{DIM}[aios {shown}]{RESET}")
+    err = aios_cli.validate(args)
+    if err:  # orden inexistente o mal escrita: al modelo, sin molestar al usuario
+        print(f"{DIM}[not a valid command]{RESET}")
+        return {"ok": False, "code": "USAGE", "data": {"error": err}, "hint": VALID_HINT}
     if not is_read_only(args) and not ask_yes(f"Run 'aios {shown}'?"):
         return {"ok": False, "code": "USER_DECLINED", "data": {},
                 "hint": "The user did not allow this command."}

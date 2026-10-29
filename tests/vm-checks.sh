@@ -20,7 +20,9 @@ jcode() { python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip()
 open=$(ss -ltnuH 2>/dev/null | awk '{print $5}' | grep -vE '^(127\.|\[::1\]|.*%lo:|10\.0\.2\.15%.*:68$)' | tr '\n' ' ')
 [ -z "$open" ] && pass no-open-ports || fail no-open-ports "$open"
 grep -q '^COMMIT=' /etc/aios/build-info && pass build-info || fail build-info "missing"
-[ "$(S passwd -S root 2>/dev/null | awk '{print $2}')" != "" ] && pass root-status || fail root-status "passwd -S"
+# (el passwd de BusyBox no tiene -S: el estado se lee de /etc/shadow)
+[ -n "$(S grep '^root:' /etc/shadow | cut -d: -f2)" ] && pass root-status || fail root-status "no root entry in shadow"
+command -v chpasswd >/dev/null && pass chpasswd-present || fail chpasswd-present "aios-firstboot needs it"
 
 # --- Red -------------------------------------------------------------------------
 check net-status aios net status
@@ -60,6 +62,10 @@ check audio-mute aios audio mute on
 aios audio status --json | grep -q '"muted": true' && pass audio-muted || fail audio-muted "not muted"
 aios audio mute off >/dev/null
 [ -x /opt/whisper/bin/whisper-cli ] && ls /usr/share/aios/models/whisper/*.bin >/dev/null 2>&1 && pass voice-installed || fail voice-installed "whisper or model missing"
+# whisper de verdad en la imagen (su ggml, no el de llama.cpp): un segundo de audio
+python3 -c "import wave; w=wave.open('/tmp/s.wav','wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(bytes(32000))"
+out=$(timeout 900 /opt/whisper/bin/whisper-cli -m /usr/share/aios/models/whisper/*.bin -f /tmp/s.wav -l es -nt -np -t 4 2>&1); rc=$?
+[ $rc -eq 0 ] && ! echo "$out" | grep -q GGML_ASSERT && pass voice-whisper-runs || fail voice-whisper-runs "rc=$rc $(echo "$out" | grep -m1 -E 'ASSERT|error')"
 ls /lib/firmware/intel/sof/sof-icl.ri >/dev/null 2>&1 && ls /usr/share/alsa/ucm2 >/dev/null 2>&1 && pass audio-sof-ucm || fail audio-sof-ucm "SOF or UCM missing"
 
 # --- Pantalla y diagnóstico -----------------------------------------------------------

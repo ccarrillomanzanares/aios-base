@@ -1,0 +1,4 @@
+# AIOS — applets de BusyBox que no vienen en la configuración de Buildroot.
+# chpasswd: aios-firstboot cambia la contraseña sin pasarla por la línea de
+# órdenes (la recibe por la entrada estándar).
+CONFIG_CHPASSWD=y

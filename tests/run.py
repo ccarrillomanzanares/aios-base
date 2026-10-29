@@ -58,8 +58,13 @@ def cpu_variant():
 
 
 def target_cmd(binary, *args):
-    """Ejecuta un binario de la imagen en el VPS con sus propias bibliotecas."""
-    libs = ":".join([f"{TARGET}/usr/lib", f"{TARGET}/lib", f"{TARGET}/opt/whisper/lib"])
+    """Ejecuta un binario de la imagen en el VPS con sus propias bibliotecas.
+    whisper lleva su propio ggml con el mismo nombre que el de llama.cpp: sus
+    bibliotecas van primero, como hace su RPATH en la imagen."""
+    libs = [f"{TARGET}/usr/lib", f"{TARGET}/lib"]
+    if "/opt/whisper/" in binary:
+        libs.insert(0, f"{TARGET}/opt/whisper/lib")
+    libs = ":".join(libs)
     return [f"{TARGET}/lib/ld-linux-x86-64.so.2", "--library-path", libs, binary, *args]
 
 
@@ -96,7 +101,8 @@ def pty_run(argv, env, script, timeout=600):
                     out += os.read(fd, 65536)
                 except OSError:
                     return False
-            if re.search(pat, out[-4000:]):
+            # sin colores: el chat pinta en gris "[N tokens, X tok/s]"
+            if re.search(pat, re.sub(rb"\x1b\[[0-9;?]*[A-Za-z]", b"", out[-4000:])):
                 return True
         return False
 
@@ -265,7 +271,8 @@ class Serial:
         self.s.sendall(text.encode() + b"\r")
 
     def text(self):
-        return re.sub(r"\x1b(\[[0-9;?]*[A-Za-z]|\][^\\]*\\)", "", self.buf.decode(errors="replace"))
+        txt = re.sub(r"\x1b(\[[0-9;?]*[A-Za-z]|\][^\\]*\\)", "", self.buf.decode(errors="replace"))
+        return txt.replace("\r", "")
 
 
 def monitor(path, cmd):
@@ -339,7 +346,7 @@ def vm():
         s.buf = b""
         s.send(f"curl -s http://10.0.2.2:{hport}/vm-checks.sh | HOST=10.0.2.2 GITPORT={hport} "
                f"MOCKPORT={mport} sh 2>&1; echo CHECKS-END")
-        s.wait(rb"CHECKS-END\r?\n", 1800)
+        s.wait(rb"\nCHECKS-END\r?\n", 2400)  # \n delante: no el eco de la orden
         out = s.text()
         open(f"{RESULTS}/vm-checks.txt", "w").write(out)
         for m in re.finditer(r"^(PASS|FAIL) (\S+)(?:: (.*))?$", out, re.M):
@@ -350,7 +357,10 @@ def vm():
         # Primer arranque: contraseña nueva y root bloqueado
         s.buf = b""
         s.send("aios-firstboot --force")
-        steps = [(rb"\[Y/n\] $", "y"), (rb"New password: $", "nueva-clave-1"),
+        steps = [(rb"Language \(number, Enter to keep\): $", ""),
+                 (rb"Keyboard \(number, Enter to keep\): $", ""),
+                 (rb"Time zone \(number, Enter to keep\): $", ""),
+                 (rb"\[Y/n\] $", "y"), (rb"New password: $", "nueva-clave-1"),
                  (rb"Repeat it: $", "nueva-clave-1"), (rb"Password changed", None)]
         ok = True
         for pat, ans in steps:
@@ -362,9 +372,9 @@ def vm():
         s.wait(rb"\$ $", 120)
         report("firstboot-password", ok, s.text()[-300:])
         s.buf = b""
-        s.send("echo nueva-clave-1 | sudo -S -p '' passwd -S root; echo FB-END")
-        s.wait(rb"FB-END\r?\n", 60)
-        report("firstboot-root-locked", re.search(r"root L", s.text()) is not None, s.text()[-200:])
+        s.send("echo nueva-clave-1 | sudo -S -p '' grep '^root:' /etc/shadow | cut -d: -f2 | cut -c1; echo FB-END")
+        s.wait(rb"\nFB-END\r?\n", 60)
+        report("firstboot-root-locked", re.search(r"^!$", s.text(), re.M) is not None, s.text()[-200:])
 
         monitor(mon, f"screendump {tmp}/screen.ppm")
         try:
