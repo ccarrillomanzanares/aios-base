@@ -1,0 +1,4 @@
+# AIOS — al enchufar o desenchufar, el perfil de energía (aios-power.service).
+# También llegan los avisos periódicos de la batería: el servicio no hace nada
+# si el perfil no cambia.
+SUBSYSTEM=="power_supply", ACTION=="change", RUN+="/usr/bin/systemctl --no-block start aios-power.service"

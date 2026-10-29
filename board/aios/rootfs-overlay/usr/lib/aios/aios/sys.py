@@ -15,7 +15,7 @@ import time
 import urllib.request
 import wave
 
-from . import audio, thermal, voice
+from . import audio, power, thermal, voice
 from .result import Result
 
 SYSFS = os.environ.get("AIOS_SYSFS", "/sys")
@@ -266,9 +266,10 @@ def selftest(args):
 
 
 def register(sub):
-    p = sub.add_parser("sys", help="system: hardware self-test, temperature")
+    p = sub.add_parser("sys", help="system: hardware self-test, temperature, power profile")
     s = p.add_subparsers(dest="action", required=True)
     t = s.add_parser("selftest", help="test the hardware of this computer (plays a short beep)")
     t.add_argument("--only", help="comma-separated tests: " + ",".join(n for n, _ in TESTS))
     t.set_defaults(func=selftest)
     s.add_parser("thermal", help="CPU temperature and thermal throttling").set_defaults(func=thermal.thermal)
+    power.register(s)

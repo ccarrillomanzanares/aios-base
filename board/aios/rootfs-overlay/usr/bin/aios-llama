@@ -4,6 +4,8 @@ set -e
 CONF=/etc/aios/llama.conf
 MODELS=/usr/share/aios/models
 [ -f "$CONF" ] && . "$CONF"
+# Perfil de batería (aios sys power): menos hilos mientras no esté enchufado
+[ -f /run/aios/llama-power.conf ] && . /run/aios/llama-power.conf
 
 pick() { # pick <patrón find> <excluir mmproj: yes/no>
     if [ "$2" = yes ]; then

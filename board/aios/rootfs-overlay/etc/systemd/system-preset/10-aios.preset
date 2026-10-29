@@ -7,6 +7,9 @@ disable sshd.service
 # Cortafuegos: activo desde el primer arranque
 enable aios-firewall.service
 
+# Perfil de energía: al arrancar y al enchufar o desenchufar (regla de udev)
+enable aios-power.service
+
 # Sonido: PipeWire y WirePlumber corren como servicios de usuario de aios
 # (post-build.sh). Los de sistema abrían la tarjeta antes y el de usuario se
 # quedaba sin micrófono (HP 15s, 29 oct).

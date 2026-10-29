@@ -1,0 +1,13 @@
+[Unit]
+Description=AIOS power profile (battery saving / full power)
+Documentation=file:/etc/aios/power.conf
+# Al arrancar, antes del modelo: así arranca ya con los hilos del perfil
+Before=aios-llama.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/aios sys power apply
+
+[Install]
+WantedBy=multi-user.target
