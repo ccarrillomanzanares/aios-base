@@ -43,6 +43,7 @@ BR2_LINUX_KERNEL_NEEDS_HOST_LIBELF=y
 # --- Firmware: GPU, wifi y red de los portátiles habituales ------------------
 BR2_PACKAGE_LINUX_FIRMWARE=y
 BR2_PACKAGE_LINUX_FIRMWARE_I915=y
+BR2_PACKAGE_LINUX_FIRMWARE_XE=y
 BR2_PACKAGE_LINUX_FIRMWARE_AMDGPU=y
 BR2_PACKAGE_LINUX_FIRMWARE_RADEON=y
 BR2_PACKAGE_LINUX_FIRMWARE_IWLWIFI_7265D=y
@@ -99,12 +100,18 @@ BR2_PACKAGE_IPROUTE2=y
 # wlroots puede dibujar sin GPU (renderizador pixman): sirve en GPU viejas
 # sin driver 3D y en QEMU.
 BR2_PACKAGE_MESA3D=y
-# Sin LLVM de momento: iris, crocus e i915 (Intel) lo exigen en mesa 26 y
-# Buildroot descarta iris sin avisar. En Intel, sway dibuja con pixman (CPU).
-# Aceleración 3D de Intel: BR2_PACKAGE_MESA3D_LLVM=y + IRIS (decisión pendiente).
+# Con LLVM: iris y crocus (Intel) lo exigen en mesa 26, igual que radeonsi.
+# Buildroot descarta iris sin avisar si falta LLVM: comprobar build/output/.config.
+# Sin driver para la GPU, mesa cae a llvmpipe, wlroots lo rechaza por ser
+# software y aios-session reintenta con pixman.
+BR2_PACKAGE_MESA3D_LLVM=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_IRIS=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_CROCUS=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_RADEONSI=y
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_R600=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_NOUVEAU=y
 BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_VIRGL=y
-BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_SOFTPIPE=y
+BR2_PACKAGE_MESA3D_GALLIUM_DRIVER_LLVMPIPE=y
 BR2_PACKAGE_MESA3D_GBM=y
 BR2_PACKAGE_MESA3D_OPENGL_EGL=y
 BR2_PACKAGE_MESA3D_OPENGL_ES=y

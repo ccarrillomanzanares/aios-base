@@ -8,11 +8,15 @@ export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=sway
 [ -n "$XDG_RUNTIME_DIR" ] || export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 
-# Sin nodo de render (GPU vieja sin driver 3D, QEMU sin virgl): wlroots dibuja
-# con pixman en la CPU. El cursor por hardware falla en virtio-gpu y simpledrm.
-if ! ls /dev/dri/renderD* >/dev/null 2>&1; then
+# Sin driver 3D para la GPU (o sin nodo de render), wlroots dibuja con pixman.
+# No se deja a mesa caer a llvmpipe: dibujaría con varios hilos de CPU, los
+# mismos que necesita el modelo. El cursor por hardware falla en virtio-gpu y
+# simpledrm.
+gpu=$(aios-gpu-probe 2>/dev/null)
+if [ $? -ne 0 ] && [ -z "$WLR_RENDERER" ]; then
     export WLR_RENDERER=pixman
 fi
+echo "aios-session: gpu probe: ${gpu:-none}, renderer: ${WLR_RENDERER:-auto}" > "$LOG_DIR/gpu.log"
 export WLR_NO_HARDWARE_CURSORS=1
 
 [ -f "$LOG_DIR/sway.log" ] && mv -f "$LOG_DIR/sway.log" "$LOG_DIR/sway.log.old"
@@ -33,4 +37,5 @@ fi
 echo ""
 echo "AIOS: sway exited (code $rc). Log: $LOG_DIR/sway.log"
 echo "Type 'exec aios-session' to retry."
+echo "Type 'aios-diag' to upload the logs for support."
 exec bash

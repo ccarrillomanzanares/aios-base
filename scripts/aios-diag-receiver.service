@@ -1,0 +1,21 @@
+# Receptor de aios-diag en el VPS. Instalar:
+#   sudo install -m 644 scripts/aios-diag-receiver.service /etc/systemd/system/
+#   sudo systemctl enable --now aios-diag-receiver
+# Apache (vhost de ccmai.org en 443), con 'a2enmod proxy proxy_http':
+#   ProxyPass        /aios-diag/ http://127.0.0.1:8091/aios-diag/
+#   ProxyPassReverse /aios-diag/ http://127.0.0.1:8091/aios-diag/
+[Unit]
+Description=AIOS diagnostics receiver (aios-diag uploads)
+After=network.target
+
+[Service]
+User=ccmai
+ExecStart=/usr/bin/python3 -I /home/ccmai/aios-base/scripts/diag-server.py --dir /home/ccmai/aios-diag
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/ccmai/aios-diag
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""AIOS — ¿tiene la GPU un driver 3D de verdad? (lo llama aios-session)
+
+Abre el nodo de render de la GPU que da imagen (boot_vga) con GBM + EGL, igual
+que wlroots, y pregunta a mesa qué driver ha cargado. Si no hay driver para
+esa GPU, mesa cae a kms_swrast (llvmpipe, en la CPU) y en máquinas virtuales
+wlroots lo acepta: sway acabaría gastando la CPU que necesita el modelo.
+
+Imprime el driver (iris, radeonsi...) y sale con 0 si es hardware; con 1 si
+no hay GPU utilizable (aios-session usa entonces pixman).
+"""
+import ctypes
+import glob
+import os
+import sys
+
+EGL_PLATFORM_GBM_KHR = 0x31D7
+SOFTWARE = {"kms_swrast", "swrast", "llvmpipe", "softpipe", "zink"}
+
+
+def render_node():
+    # La GPU que arranca la imagen (en híbridos Intel+NVIDIA, la integrada)
+    nodes = []
+    for card in sorted(glob.glob("/sys/class/drm/card[0-9]*")):
+        if "-" in os.path.basename(card):
+            continue  # card0-eDP-1 y demás conectores
+        dev = os.path.join(card, "device")
+        r = sorted(glob.glob(os.path.join(dev, "drm", "renderD*")))
+        if not r:
+            continue
+        try:
+            boot = open(os.path.join(dev, "boot_vga")).read().strip() == "1"
+        except OSError:
+            boot = False
+        nodes.append((not boot, "/dev/dri/" + os.path.basename(r[0])))
+    return sorted(nodes)[0][1] if nodes else None
+
+
+def probe(node):
+    os.environ.setdefault("EGL_LOG_LEVEL", "fatal")
+    gbm = ctypes.CDLL("libgbm.so.1")
+    egl = ctypes.CDLL("libEGL.so.1")
+    gbm.gbm_create_device.restype = ctypes.c_void_p
+    gbm.gbm_create_device.argtypes = [ctypes.c_int]
+    egl.eglGetPlatformDisplay.restype = ctypes.c_void_p
+    egl.eglGetPlatformDisplay.argtypes = [ctypes.c_uint, ctypes.c_void_p, ctypes.c_void_p]
+    egl.eglInitialize.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+    egl.eglTerminate.argtypes = [ctypes.c_void_p]
+    egl.eglGetProcAddress.restype = ctypes.c_void_p
+    egl.eglGetProcAddress.argtypes = [ctypes.c_char_p]
+
+    fd = os.open(node, os.O_RDWR | os.O_CLOEXEC)
+    dev = gbm.gbm_create_device(fd)
+    if not dev:
+        return None
+    dpy = egl.eglGetPlatformDisplay(EGL_PLATFORM_GBM_KHR, dev, None)
+    if not dpy or not egl.eglInitialize(dpy, None, None):
+        return None
+    addr = egl.eglGetProcAddress(b"eglGetDisplayDriverName")
+    name = None
+    if addr:
+        fn = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p)(addr)
+        raw = fn(dpy)
+        name = raw.decode() if raw else None
+    egl.eglTerminate(dpy)
+    return name
+
+
+def main():
+    node = render_node()
+    if not node:
+        print("none")
+        return 1
+    try:
+        name = probe(node)
+    except OSError as e:
+        print(f"error: {e}", file=sys.stderr)
+        name = None
+    print(f"{name or 'none'} {node}")
+    return 0 if name and name not in SOFTWARE else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

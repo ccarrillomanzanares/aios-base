@@ -4,3 +4,4 @@ models/*.gguf
 *.iso
 __pycache__/
 models/*.part
+local/

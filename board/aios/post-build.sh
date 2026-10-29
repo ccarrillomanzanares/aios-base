@@ -35,6 +35,16 @@ else
     echo "post-build: AVISO: no hay modelos en models/ (ejecuta 'make model')"
 fi
 
+# --- aios-diag: token del receptor ------------------------------------------
+# El token no va en git: se lee de local/diag.token si existe.
+if [ -f "$ROOT_DIR/local/diag.token" ]; then
+    install -m 0644 "$ROOT_DIR/local/diag.token" "$TARGET_DIR/etc/aios/diag.token"
+    echo "post-build: token de aios-diag instalado"
+else
+    rm -f "$TARGET_DIR/etc/aios/diag.token"
+    echo "post-build: AVISO: sin local/diag.token, aios-diag no podrá subir"
+fi
+
 # --- Servicios ----------------------------------------------------------------
 WANTS="$TARGET_DIR/etc/systemd/system/multi-user.target.wants"
 mkdir -p "$WANTS"

@@ -2,4 +2,4 @@
 # uid/gid fijos en 1000: en mkusers -1 es "uid de sistema" (<1000) y logind
 # trataría a aios como usuario de sistema (sesión user-light, sin systemd --user).
 # Contraseña "aios" (=aios en claro). Se cambiará en el instalador (hito 4).
-aios 1000 aios 1000 =aios /home/aios /bin/bash audio,video,input,render,wheel AIOS user
+aios 1000 aios 1000 =aios /home/aios /bin/bash audio,video,input,render,wheel,systemd-journal AIOS user
