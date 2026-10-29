@@ -133,9 +133,15 @@ def native():
         mmproj = glob.glob(f"{MODELS}/*mmproj*.gguf")[0]
         port = free_port()
         env = dict(os.environ, GGML_BACKEND_PATH=f"{TARGET}/usr/lib/ggml/libggml-cpu-{variant}.so")
+        # Como aios-llama: plantilla con el historial estable y estados guardados en disco
+        tpl, slots = f"{tmp}/chat-template.jinja", f"{tmp}/slots"
+        os.makedirs(slots)
+        subprocess.run(["python3", "-I", f"{LIB}/aios/gguf.py", "template", model, tpl])
         llama = subprocess.Popen(target_cmd(f"{TARGET}/usr/bin/llama-server", "-m", model, "--mmproj", mmproj,
                                             "--host", "127.0.0.1", "--port", str(port), "-c", "8192",
-                                            "-t", str(min(8, os.cpu_count())), "-np", "1", "--jinja"),
+                                            "-t", str(min(8, os.cpu_count())), "-np", "1", "--jinja",
+                                            *(["--chat-template-file", tpl] if os.path.exists(tpl) else []),
+                                            "--slot-save-path", slots),
                                  env=env, stdout=open(f"{tmp}/llama.log", "w"), stderr=subprocess.STDOUT)
         procs.append(llama)
         report("native-llama-server", wait_http(f"http://127.0.0.1:{port}/health", 300, llama),
@@ -215,6 +221,24 @@ def native():
         ok, out = pty_run(chat, dict(chat_env, XDG_CONFIG_HOME=f"{tmp}/cfg"),
                           [(rb"> $", "hola"), (rb"Respuesta remota", "/exit")], timeout=60)
         report("chat-remote-provider", ok and "REMOTE AI: mock" in out, out[-200:])
+
+        # Prompt fijo guardado: la primera vez se procesa y se guarda; la segunda se
+        # restaura y un mensaje nuevo solo procesa la pregunta
+        probe = (f"import importlib.machinery as M, importlib.util as U, json\n"
+                 f"l=M.SourceFileLoader('c','{OVERLAY}/usr/bin/aios-chat'); m=U.module_from_spec(U.spec_from_loader('c',l)); l.exec_module(m)\n"
+                 f"m.warm_prefix(); m.warm_prefix()\n"
+                 f"r=m.local_post('/v1/chat/completions', {{'messages': [{{'role':'system','content':m.SYSTEM}}, {{'role':'user','content':'Hola'}}], "
+                 f"'tools': m.TOOLS, 'max_tokens': 8, 'chat_template_kwargs': {{'enable_thinking': False}}}})\n"
+                 f"print(json.dumps(r['timings']))")
+        r = subprocess.run(["python3", "-B", "-c", probe], capture_output=True, text=True, timeout=600,
+                           env=dict(chat_env, AIOS_LLAMA_PORT=str(port)))
+        saved = glob.glob(f"{slots}/prefix-*.bin")
+        try:
+            processed = json.loads(r.stdout.strip().splitlines()[-1])["prompt_n"]
+        except (ValueError, IndexError, KeyError):
+            processed = None
+        report("prefix-cache", bool(saved) and processed is not None and processed < 60,
+               f"saved={len(saved)} processed={processed} {r.stderr[-200:]}")
     except (IndexError, OSError) as e:
         report("native-setup", False, str(e))
     finally:

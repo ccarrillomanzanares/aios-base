@@ -11,6 +11,8 @@ ExecStart=/usr/bin/aios-llama
 DynamicUser=yes
 # Plantilla del chat generada al arrancar (aios-llama)
 RuntimeDirectory=aios-llama
+# Prompt fijo del agente ya procesado (aios-chat lo restaura al empezar)
+CacheDirectory=aios-llama
 # El modelo se lee desde disco: sin red ni escritura fuera de lo imprescindible.
 ProtectSystem=strict
 ProtectHome=yes

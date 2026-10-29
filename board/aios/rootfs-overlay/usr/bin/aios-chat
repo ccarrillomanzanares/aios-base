@@ -9,6 +9,7 @@ la voz se leen en voz alta. Las conversaciones se guardan y /resume las
 retoma. Solo biblioteca estándar: la imagen no lleva requests.
 """
 import getpass
+import hashlib
 import json
 import os
 import random
@@ -18,6 +19,7 @@ import signal
 import subprocess
 import sys
 import termios
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -171,6 +173,47 @@ def wait_for_server():
     return False
 
 
+# --- Prompt fijo guardado ----------------------------------------------------------
+
+def local_post(path, body, timeout=300):
+    req = urllib.request.Request(BASE + path, data=json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.load(r)
+
+
+def warm_prefix():
+    """Deja en el modelo local el prompt fijo (sistema + herramientas) ya procesado.
+
+    Se pinta la conversación con la plantilla del servidor y se corta antes del
+    turno del usuario: ese prefijo es igual en todas las conversaciones. Su
+    estado se guarda en disco (aios-llama --slot-save-path) con un nombre que
+    depende del modelo y del prefijo; si ya existe, se restaura (milisegundos)
+    en vez de procesarlo (~50 s en el HP 15s). Si algo falla, no pasa nada: el
+    primer mensaje lo procesa como siempre.
+    """
+    try:
+        props = json.load(urllib.request.urlopen(BASE + "/props", timeout=5))
+        model = os.path.basename(props.get("model_path") or "")
+        pr = local_post("/apply-template", {
+            "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": "@@Q@@"}],
+            "tools": TOOLS, "chat_template_kwargs": {"enable_thinking": False}})["prompt"]
+        prefix = pr[:pr.index("@@Q@@")]
+        prefix = prefix[:prefix.rindex("<|im_start|>user")] if "<|im_start|>user" in prefix else ""
+        if len(prefix) < 200:
+            return  # plantilla desconocida: no se adivina dónde cortar
+        name = "prefix-" + hashlib.sha256((model + "\0" + prefix).encode()).hexdigest()[:16] + ".bin"
+        try:
+            local_post("/slots/0?action=restore", {"filename": name}, timeout=60)
+            return
+        except urllib.error.HTTPError:
+            pass  # no está guardado todavía (o es de otra versión)
+        local_post("/completion", {"prompt": prefix, "n_predict": 0, "cache_prompt": True})
+        local_post("/slots/0?action=save", {"filename": name}, timeout=60)
+    except (urllib.error.URLError, OSError, ValueError, KeyError):
+        pass
+
+
 # --- Contexto --------------------------------------------------------------------
 
 def msg_chars(m):
@@ -224,6 +267,15 @@ class Session:
         self.ctx = Context(provider)
         self.tools = True       # se apaga si el proveedor no admite herramientas
         self.speak_always = False
+        self.warm = None        # hilo que prepara el prompt fijo en el modelo local
+        if provider["local"]:
+            self.warm = threading.Thread(target=warm_prefix, daemon=True)
+            self.warm.start()
+
+    def wait_warm(self):
+        if self.warm is not None:
+            self.warm.join()
+            self.warm = None
 
     def follow_active(self):
         """Si el proveedor activo cambió (/pair, /ai o el agente), se pasa a él."""
@@ -238,6 +290,9 @@ class Session:
         elif not wait_for_server():
             return
         self.provider, self.ctx, self.tools = p, Context(p), True
+        if p["local"]:
+            self.warm = threading.Thread(target=warm_prefix, daemon=True)
+            self.warm.start()
         where = "this computer" if p["local"] else p["url"]
         print(f'{DIM}[now using {p["name"]}: {p.get("model") or "local model"}, {where}]{RESET}')
 
@@ -503,6 +558,7 @@ def turn(messages, sess, text, spoken_lang=None):
     answer = ""
     for _ in range(MAX_STEPS):
         try:
+            sess.wait_warm()  # que no compitan por el único hueco del servidor
             content, calls = complete(messages, sess)
         except KeyboardInterrupt:
             print("\n[interrupted]")

@@ -64,6 +64,16 @@ if python3 -I /usr/lib/aios/aios/gguf.py template "$model" "$tpl" 2>/dev/null; t
     set -- "$@" --chat-template-file "$tpl"
 fi
 
+# Estado del prompt fijo del agente (sistema + herramientas) guardado en disco:
+# aios-chat lo restaura y el primer mensaje no espera a procesarlo (~50 s en
+# el HP 15s). Ver warm_prefix en aios-chat. Se quedan los 3 más recientes.
+slots="${CACHE_DIRECTORY:-/var/cache/aios-llama}/slots"
+if mkdir -p "$slots" 2>/dev/null; then
+    # shellcheck disable=SC2012  # nombres propios, sin espacios
+    ls -t "$slots"/*.bin 2>/dev/null | tail -n +4 | xargs -r rm -f
+    set -- "$@" --slot-save-path "$slots"
+fi
+
 echo "aios-llama: $(basename "$model")${mmproj:+ + $(basename "$mmproj")}, ctx $ctx, $threads threads ($threads_batch for the prompt)"
 # shellcheck disable=SC2086  # EXTRA_ARGS se parte en palabras a propósito
 exec /usr/bin/llama-server "$@" $EXTRA_ARGS
