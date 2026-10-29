@@ -257,6 +257,11 @@ def remove(args):
                   text=f'Removed "{args.name}" (and its API key). Using "{cfg["active"]}".')
 
 
+def _look(args):
+    from . import look  # look importa este módulo
+    return look.look(args)
+
+
 def register(sub):
     p = sub.add_parser("ai", help="AI model: local or external providers")
     s = p.add_subparsers(dest="action", required=True)
@@ -277,6 +282,10 @@ def register(sub):
     u.add_argument("name")
     u.add_argument("--confirm", metavar="TOKEN")
     u.set_defaults(func=use)
+    lk = s.add_parser("look", help="ask the model about what is on the screen")
+    lk.add_argument("question", nargs="?")
+    lk.add_argument("--file", help="an image instead of a screen capture")
+    lk.set_defaults(func=_look)
     r = s.add_parser("remove", help="delete a provider and its API key")
     r.add_argument("name")
     r.set_defaults(func=remove)

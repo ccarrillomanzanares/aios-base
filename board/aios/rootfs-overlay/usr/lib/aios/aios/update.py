@@ -27,6 +27,7 @@ from .result import Result, fail
 
 ROOT = os.environ.get("AIOS_UPDATE_ROOT", "/")  # raíz del sistema (pruebas)
 CONF = os.path.join(ROOT, "etc/aios/update.conf")
+SIGNERS = os.path.join(ROOT, "etc/aios/update-signers")
 BUILD_INFO = os.path.join(ROOT, "etc/aios/build-info")
 STATE = os.environ.get("AIOS_UPDATE_STATE", "/var/lib/aios")
 SRC = os.path.join(STATE, "src")
@@ -105,10 +106,29 @@ def need_root(action):
     return None
 
 
+class NoRelease(Exception):
+    """No hay ninguna versión firmada por una clave de update-signers."""
+
+
+def verified_tag():
+    """La etiqueta v* más alta con firma válida (clave de update-signers)."""
+    tags = git("tag", "-l", "v*", "--sort=-v:refname").split()
+    for tag in tags:
+        p = subprocess.run(["git", "-C", SRC, "-c", "gpg.format=ssh",
+                            "-c", f"gpg.ssh.allowedSignersFile={SIGNERS}", "verify-tag", tag],
+                           capture_output=True, stdin=subprocess.DEVNULL, timeout=60)
+        if p.returncode == 0:
+            return tag
+    raise NoRelease(f"none of {len(tags)} tag(s) is signed by a key in {SIGNERS}")
+
+
 def fetch():
+    """Descarga y devuelve (commit, repo, origen). Canal 'release' (por defecto):
+    la versión firmada más reciente; 'main': lo último de la rama, sin firma."""
     conf = read_kv(CONF)
     repo = conf.get("REPO", "https://github.com/ccarrillomanzanares/aios-base")
     branch = conf.get("BRANCH", "main")
+    channel = conf.get("CHANNEL", "release")
     if not os.path.isdir(os.path.join(SRC, ".git")):
         os.makedirs(STATE, exist_ok=True)
         p = subprocess.run(["git", "clone", "--quiet", "--branch", branch, repo, SRC],
@@ -116,11 +136,20 @@ def fetch():
         if p.returncode != 0:
             shutil.rmtree(SRC, ignore_errors=True)
             raise RuntimeError(p.stderr.decode(errors="replace").strip())
-    else:
-        git("remote", "set-url", "origin", repo)
-        git("fetch", "--quiet", "origin", branch)
-    return git("rev-parse", "FETCH_HEAD" if os.path.exists(os.path.join(SRC, ".git", "FETCH_HEAD"))
-               else "HEAD").strip(), repo, branch
+    git("remote", "set-url", "origin", repo)
+    git("fetch", "--quiet", "--tags", "--force", "origin", branch)
+    if channel == "main":
+        return git("rev-parse", "FETCH_HEAD").strip(), repo, f"{branch} (unsigned)"
+    tag = verified_tag()
+    return git("rev-parse", f"{tag}^{{commit}}").strip(), repo, f"{tag} (signed)"
+
+
+def is_older(new, base):
+    """¿new es anterior a lo instalado? (nunca se baja de versión)"""
+    if not base or new == base:
+        return False
+    return subprocess.run(["git", "-C", SRC, "merge-base", "--is-ancestor", new, base],
+                          capture_output=True).returncode == 0
 
 
 def plan(base, new):
@@ -169,7 +198,7 @@ def token_for(new, steps):
 
 
 def summary(new, steps, image, commits, base_ok):
-    lines = [f"Latest: {new[:10]}"]
+    lines = [f"Latest: {new[:10]}"]  # el origen (etiqueta firmada o rama) lo añade quien llama
     if commits:
         lines += ["Commits:"] + [f"  {c}" for c in commits[:15]]
         if len(commits) > 15:
@@ -216,13 +245,19 @@ def code_check(args):
         return r
     try:
         new, repo, branch = fetch()
+    except NoRelease as e:
+        return Result(True, "UPDATE_NO_RELEASE", {"error": str(e)},
+                      "There is no signed AIOS release yet.", text=f"No signed release: {e}")
     except (RuntimeError, OSError, subprocess.TimeoutExpired) as e:
         return fail("UPDATE_FETCH_FAILED", "Check the network with: aios net status",
                     {"error": str(e)}, text=f"Could not download the AIOS code: {e}")
     base = installed_commit()
+    if is_older(new, base):
+        return Result(True, "UPDATE_NONE", {"installed": base, "latest": new, "source": branch},
+                      text=f"Installed code is newer than {branch}: nothing to do.")
     steps, image, commits, base_ok = plan(base, new)
     n = sum(len(v) for k, v in steps.items() if k != "kept")
-    data = {"installed": base, "latest": new, "repo": repo, "branch": branch,
+    data = {"installed": base, "latest": new, "repo": repo, "source": branch,
             "changes": steps, "needs_image": image, "commits": commits}
     if n == 0:
         return Result(True, "UPDATE_NONE", data,
@@ -230,7 +265,7 @@ def code_check(args):
                       text="\n".join(["AIOS code is up to date."] +
                                      summary(new, steps, image, [], base_ok)[1:]))
     return Result(True, "UPDATE_AVAILABLE", data, "Run: sudo aios update code apply",
-                  text="\n".join(summary(new, steps, image, commits, base_ok)))
+                  text="\n".join([f"Source: {branch}"] + summary(new, steps, image, commits, base_ok)))
 
 
 def code_apply(args):
@@ -238,11 +273,17 @@ def code_apply(args):
     if r:
         return r
     try:
-        new, _, _ = fetch()
+        new, _, branch = fetch()
+    except NoRelease as e:
+        return Result(True, "UPDATE_NO_RELEASE", {"error": str(e)},
+                      "There is no signed AIOS release yet.", text=f"No signed release: {e}")
     except (RuntimeError, OSError, subprocess.TimeoutExpired) as e:
         return fail("UPDATE_FETCH_FAILED", "Check the network with: aios net status",
                     {"error": str(e)}, text=f"Could not download the AIOS code: {e}")
     base = installed_commit()
+    if is_older(new, base):
+        return Result(True, "UPDATE_NONE", {"installed": base, "latest": new},
+                      text=f"Installed code is newer than {branch}: nothing to do.")
     steps, image, commits, base_ok = plan(base, new)
     if not any(steps[k] for k in ("update", "add", "remove", "conflict")):
         return Result(True, "UPDATE_NONE", {"latest": new}, text="AIOS code is up to date.")

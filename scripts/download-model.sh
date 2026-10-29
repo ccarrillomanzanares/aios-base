@@ -23,4 +23,15 @@ get "Qwen3.5-4B-$QUANT.gguf" "Qwen3.5-4B-$QUANT.gguf"
 # El mmproj del repo se llama igual en todos los modelos: se renombra para que
 # en /usr/share/aios/models se sepa de qué modelo es.
 get "mmproj-F16.gguf" "Qwen3.5-4B-mmproj-F16.gguf"
-ls -lh "$DEST"/*.gguf
+# Reconocimiento de voz (whisper.cpp): small multilingüe cuantizado, ~190 MB.
+# Buen español en CPU; post-build.sh lo copia a /usr/share/aios/models/whisper.
+WHISPER_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main"
+mkdir -p "$DEST/whisper"
+if [ -s "$DEST/whisper/ggml-small-q5_1.bin" ]; then
+    echo "ya está: models/whisper/ggml-small-q5_1.bin"
+else
+    echo "descargando ggml-small-q5_1.bin -> models/whisper/"
+    curl -fL --retry 3 -C - -o "$DEST/whisper/ggml-small-q5_1.bin.part" "$WHISPER_URL/ggml-small-q5_1.bin"
+    mv -f "$DEST/whisper/ggml-small-q5_1.bin.part" "$DEST/whisper/ggml-small-q5_1.bin"
+fi
+ls -lh "$DEST"/*.gguf "$DEST"/whisper/*.bin

@@ -1,0 +1,15 @@
+#!/bin/sh
+# AIOS — captura de pantalla (tecla Impr Pant) en ~/Pictures/Screenshots.
+# aios-diag sube las últimas al pedir soporte. Se guardan las 50 más recientes.
+DIR="$HOME/Pictures/Screenshots"
+mkdir -p "$DIR"
+# Desde una terminal fuera de sway (tty, consola serie): el socket de sway
+[ -n "$WAYLAND_DISPLAY" ] || export WAYLAND_DISPLAY=wayland-1
+[ -n "$XDG_RUNTIME_DIR" ] || export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+f="$DIR/aios-$(date +%Y%m%d-%H%M%S).png"
+if ! grim "$f"; then
+    echo "aios-screenshot: grim failed (is sway running?)" >&2
+    exit 1
+fi
+ls -1t "$DIR"/aios-*.png 2>/dev/null | tail -n +51 | while read -r old; do rm -f "$old"; done
+echo "$f"

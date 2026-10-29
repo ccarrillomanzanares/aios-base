@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""AIOS — primer arranque: contraseña propia y red. Lo lanza sway antes del
+chat mientras no exista ~/.local/state/aios/firstboot-done.
+
+La imagen sale con aios/aios y root/aios: contraseñas que conoce cualquiera,
+con sudo. Aquí se cambia la de aios y se bloquea root (se administra con
+sudo). Las contraseñas no van nunca en la línea de órdenes.
+"""
+import getpass
+import json
+import os
+import subprocess
+import sys
+import time
+
+DEFAULT_PASSWORD = "aios"
+FLAG = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
+                    "aios", "firstboot-done")
+MIN_LEN = 6
+
+
+def say(text, delay=0.02):
+    for ch in text:
+        sys.stdout.write(ch)
+        sys.stdout.flush()
+        if ch != " ":
+            time.sleep(delay)
+    print()
+
+
+def ask(prompt, default=""):
+    try:
+        ans = input(prompt).strip()
+    except EOFError:
+        return default
+    return ans or default
+
+
+def sudo(args, password, stdin_rest=""):
+    """sudo -S: la primera línea de la entrada es la contraseña de sudo."""
+    p = subprocess.run(["sudo", "-S", "-p", "", *args], input=f"{password}\n{stdin_rest}",
+                       capture_output=True, text=True, timeout=60)
+    return p.returncode == 0, (p.stderr or p.stdout).strip()
+
+
+def set_password():
+    say("STEP 1 OF 2: PASSWORD")
+    print(f'This computer still uses the default password "{DEFAULT_PASSWORD}", which anyone knows.')
+    while True:
+        if ask("Choose your own password now? [Y/n] ", "y").lower() not in ("y", "yes", "s", "si", "sí"):
+            print("Skipped. You can do it later with: passwd")
+            return False
+        current = DEFAULT_PASSWORD
+        new = getpass.getpass("New password: ")
+        if len(new) < MIN_LEN:
+            print(f"Too short: at least {MIN_LEN} characters.")
+            continue
+        if new != getpass.getpass("Repeat it: "):
+            print("They do not match. Try again.")
+            continue
+        user = getpass.getuser()
+        ok, err = sudo(["chpasswd"], current, f"{user}:{new}\n")
+        if not ok:  # ya no era la de serie
+            current = getpass.getpass("Current password: ")
+            ok, err = sudo(["chpasswd"], current, f"{user}:{new}\n")
+        if not ok:
+            print(f"Could not change it: {err or 'wrong current password'}")
+            continue
+        locked, _ = sudo(["passwd", "-l", "root"], new)
+        print("Password changed." + (" The root account is locked; use sudo." if locked else ""))
+        return True
+
+
+def aios(*args):
+    p = subprocess.run(["aios", *args, "--json"], capture_output=True, text=True, timeout=120)
+    try:
+        return json.loads(p.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return {"ok": False, "code": "BAD_OUTPUT"}
+
+
+def network():
+    say("STEP 2 OF 2: NETWORK")
+    st = aios("net", "status")
+    if st.get("ok"):
+        print("Already connected to the Internet.")
+        return True
+    while True:
+        print("Looking for wifi networks...")
+        scan = aios("net", "wifi", "scan")
+        nets = (scan.get("data") or {}).get("networks") or []
+        if not nets:
+            print(scan.get("hint") or "No wifi networks found.")
+            if ask("Try again? [Y/n] ", "y").lower() not in ("y", "yes", "s", "si", "sí"):
+                return False
+            continue
+        for i, n in enumerate(nets[:15], 1):
+            print(f'{i:>2}  {n["ssid"]}  ({n["security"]}, {n["signal_dbm"]} dBm)')
+        choice = ask("Number of your network (Enter to skip): ")
+        if not choice:
+            print("Skipped. Later: aios net wifi scan / aios net wifi connect <name>")
+            return False
+        try:
+            net = nets[int(choice) - 1]
+        except (ValueError, IndexError):
+            continue
+        args = ["net", "wifi", "connect", net["ssid"]]
+        if net["security"] != "open" and not net["known"]:
+            args += ["--password", getpass.getpass(f'Password for "{net["ssid"]}": ')]
+        print("Connecting...")
+        res = aios(*args)
+        if res.get("ok"):
+            print(f'Connected ({(res.get("data") or {}).get("ipv4")}).')
+            return True
+        print(f'Could not connect: {res.get("code")}. {res.get("hint") or ""}')
+
+
+def main():
+    if os.path.exists(FLAG) and "--force" not in sys.argv:
+        return 0
+    os.system("clear")
+    say("AIOS FIRST START", 0.05)
+    print("Two quick steps. Press Enter to accept, or skip any of them.\n")
+    try:
+        set_password()
+        print()
+        network()
+    except KeyboardInterrupt:
+        print("\nSkipped. Run it again with: aios-firstboot --force")
+    os.makedirs(os.path.dirname(FLAG), exist_ok=True)
+    open(FLAG, "w").close()
+    print()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

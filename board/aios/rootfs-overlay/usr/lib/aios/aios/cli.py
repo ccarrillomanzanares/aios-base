@@ -2,7 +2,7 @@
 import argparse
 import sys
 
-from . import ai, net, ui, update
+from . import ai, audio, net, ui, update
 from .result import fail
 
 
@@ -20,6 +20,7 @@ def main(argv=None):
     p.add_argument("--json", action="store_true", help="machine-readable output")
     sub = p.add_subparsers(dest="space", required=True)
     ai.register(sub)
+    audio.register(sub)
     net.register(sub)
     ui.register(sub)
     update.register(sub)

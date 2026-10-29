@@ -56,6 +56,55 @@ else
     echo "post-build: AVISO: sin local/diag.token, aios-diag no podrá subir"
 fi
 
+# --- Modelo de voz (whisper.cpp) ------------------------------------------------
+mkdir -p "$TARGET_DIR/usr/share/aios/models/whisper"
+if ls "$ROOT_DIR"/models/whisper/*.bin >/dev/null 2>&1; then
+    cp -f "$ROOT_DIR"/models/whisper/*.bin "$TARGET_DIR/usr/share/aios/models/whisper/"
+    echo "post-build: modelo de voz: $(ls "$ROOT_DIR"/models/whisper/*.bin | xargs -n1 basename)"
+else
+    echo "post-build: AVISO: sin modelo de voz en models/whisper (ejecuta 'make model')"
+fi
+
+# --- Sonido: PipeWire para todas las aplicaciones ------------------------------
+# Servicios de usuario (los arranca systemd --user al entrar aios): PipeWire,
+# su servidor PulseAudio (pipewire-pulse) y WirePlumber.
+USER_UNITS="$TARGET_DIR/etc/systemd/user"
+mkdir -p "$USER_UNITS/sockets.target.wants" "$USER_UNITS/default.target.wants" \
+         "$USER_UNITS/pipewire.service.wants"
+for u in pipewire.socket pipewire-pulse.socket; do
+    [ -f "$TARGET_DIR/usr/lib/systemd/user/$u" ] && \
+        ln -sf "/usr/lib/systemd/user/$u" "$USER_UNITS/sockets.target.wants/$u"
+done
+for u in pipewire.service pipewire-pulse.service; do
+    [ -f "$TARGET_DIR/usr/lib/systemd/user/$u" ] && \
+        ln -sf "/usr/lib/systemd/user/$u" "$USER_UNITS/default.target.wants/$u"
+done
+if [ -f "$TARGET_DIR/usr/lib/systemd/user/wireplumber.service" ]; then
+    ln -sf /usr/lib/systemd/user/wireplumber.service "$USER_UNITS/pipewire.service.wants/wireplumber.service"
+    ln -sf /usr/lib/systemd/user/wireplumber.service "$USER_UNITS/pipewire-session-manager.service"
+fi
+# El paquete pulseaudio solo aporta libpulse (la cargan Firefox, SDL...): su
+# demonio no debe arrancar nunca, el servidor PulseAudio es pipewire-pulse.
+for u in pulseaudio.service pulseaudio.socket; do
+    ln -sf /dev/null "$USER_UNITS/$u"
+done
+if [ -f "$TARGET_DIR/etc/pulse/client.conf" ]; then
+    sed -i -E 's/^;? *autospawn *=.*/autospawn = no/' "$TARGET_DIR/etc/pulse/client.conf"
+    grep -q '^autospawn = no' "$TARGET_DIR/etc/pulse/client.conf" || \
+        echo 'autospawn = no' >> "$TARGET_DIR/etc/pulse/client.conf"
+fi
+# ALSA: el dispositivo "default" es PipeWire (aplay, juegos SDL, etc.)
+mkdir -p "$TARGET_DIR/etc/alsa/conf.d"
+for f in 50-pipewire.conf 99-pipewire-default.conf; do
+    for d in usr/share/alsa/alsa.conf.d usr/share/pipewire/alsa-conf; do
+        if [ -f "$TARGET_DIR/$d/$f" ]; then
+            ln -sf "/$d/$f" "$TARGET_DIR/etc/alsa/conf.d/$f"
+            break
+        fi
+    done
+done
+echo "post-build: sonido: $(ls "$TARGET_DIR/etc/alsa/conf.d" 2>/dev/null | tr '\n' ' ')"
+
 # --- Servicios ----------------------------------------------------------------
 WANTS="$TARGET_DIR/etc/systemd/system/multi-user.target.wants"
 mkdir -p "$WANTS"

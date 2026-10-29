@@ -2,18 +2,22 @@
 # AIOS — recoge logs y datos del equipo en un .tar.gz y lo sube al receptor
 # de diagnósticos (/etc/aios/diag.conf). Funciona desde la shell de tty1
 # aunque sway no haya arrancado.
-#   aios-diag           recoge y sube
-#   aios-diag --local   solo recoge (deja el .tar.gz en /tmp)
+#   aios-diag                   recoge y sube (con las 3 últimas capturas)
+#   aios-diag --local           solo recoge (deja el .tar.gz en /tmp)
+#   aios-diag --no-screenshots  sin capturas de pantalla
 CONF=/etc/aios/diag.conf
 TOKEN_FILE=/etc/aios/diag.token
 [ -f "$CONF" ] && . "$CONF"
 
 upload=yes
-case "$1" in
-    --local) upload=no ;;
-    "") ;;
-    *) echo "usage: aios-diag [--local]" >&2; exit 2 ;;
-esac
+shots=yes
+for a in "$@"; do
+    case "$a" in
+        --local) upload=no ;;
+        --no-screenshots) shots=no ;;
+        *) echo "usage: aios-diag [--local] [--no-screenshots]" >&2; exit 2 ;;
+    esac
+done
 
 host=$(hostname 2>/dev/null || echo aios)
 name="aios-diag-$host-$(date +%Y%m%d-%H%M%S)"
@@ -59,6 +63,22 @@ run gpu-probe.txt sh -c 'EGL_LOG_LEVEL=debug aios-gpu-probe'
 for f in "$HOME"/.local/state/aios/*.log "$HOME"/.local/state/aios/*.log.old; do
     [ -f "$f" ] && cp "$f" "$dir/" 2>/dev/null
 done
+
+# --- Sonido ------------------------------------------------------------------
+run audio.txt sh -c 'aios audio status; echo; wpctl status; echo; cat /proc/asound/cards;
+    echo; aplay -l; echo; arecord -l; echo; systemctl --user status pipewire pipewire-pulse wireplumber --no-pager'
+run audio-dump.json pw-dump
+
+# --- Últimas capturas de pantalla (tecla Impr Pant): lo que vio el usuario ---
+if [ "$shots" = yes ]; then
+    mkdir -p "$dir/screenshots"
+    ls -1t "$HOME"/Pictures/Screenshots/*.png 2>/dev/null | head -n 3 | while read -r f; do
+        # hasta 4 MB por captura, para no hacer enorme el paquete
+        [ "$(stat -c %s "$f")" -le 4194304 ] && cp "$f" "$dir/screenshots/"
+    done
+    n=$(ls "$dir/screenshots" | wc -l)
+    [ "$n" -gt 0 ] && echo "AIOS diag: including your last $n screenshot(s) (use --no-screenshots to skip)"
+fi
 
 # --- systemd y journal (aios está en systemd-journal: ve el del sistema) ------
 run journal-boot.txt journalctl -b --no-pager -o short-monotonic

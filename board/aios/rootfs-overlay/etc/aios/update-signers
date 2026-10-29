@@ -1,0 +1,4 @@
+# AIOS — claves que firman las versiones (etiquetas v*) que acepta
+# 'aios update code'. Formato allowed_signers de ssh-keygen. La privada
+# está en el VPS de compilación (~/.ssh/aios-release); ver scripts/release.sh.
+aios-release@ccmai.org namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJaAkCOZnsJwgu8wzM5TPR12RVWVjgxzYo/FIovdMajG

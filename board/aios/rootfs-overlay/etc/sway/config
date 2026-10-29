@@ -67,9 +67,22 @@ bindsym $mod+Shift+5 move container to workspace number 5
 bindsym --locked XF86MonBrightnessUp exec aios ui brightness up
 bindsym --locked XF86MonBrightnessDown exec aios ui brightness down
 
+# Teclas de sonido
+bindsym --locked XF86AudioRaiseVolume exec aios audio volume up
+bindsym --locked XF86AudioLowerVolume exec aios audio volume down
+bindsym --locked XF86AudioMute exec aios audio mute
+bindsym --locked XF86AudioMicMute exec aios audio mute --mic
+
+# Captura de pantalla (Impr Pant) en ~/Pictures/Screenshots
+bindsym Print exec aios-screenshot
+
+# Hablar con AIOS: mantener Super+Espacio, hablar y soltar
+bindsym --no-repeat $mod+space exec aios-voice start
+bindsym --release $mod+space exec aios-voice stop
+
 # --- Arranque: la consola del agente en el espacio 1 ---------------------------
 # Al salir del chat queda una shell en la misma ventana.
-exec $term --title "AIOS" sh -c 'aios-chat; exec bash'
+exec $term --title "AIOS" sh -c 'aios-firstboot; aios-chat; exec bash'
 
 include /etc/sway/config.d/*
 include ~/.config/sway/config.d/*

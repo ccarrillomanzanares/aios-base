@@ -8,13 +8,14 @@ raíz de /sys para las pruebas.
 import glob
 import locale
 import os
+import signal
 import subprocess
 import sys
 import time
 import urllib.request
 
 sys.path.insert(0, os.environ.get("AIOS_LIB", "/usr/lib/aios"))
-from aios import ai as aiconf, net  # noqa: E402
+from aios import ai as aiconf, audio, net, voice  # noqa: E402
 
 SYSFS = os.environ.get("AIOS_SYSFS", "/sys")
 LLAMA = "http://127.0.0.1:{}/health".format(os.environ.get("AIOS_LLAMA_PORT", "8083"))
@@ -62,6 +63,28 @@ def battery():
     return " ".join(out)
 
 
+def sound():
+    try:
+        v = audio.get_volume(audio.SINK)
+    except Exception:
+        return ""
+    if v is None:
+        return ""
+    return "VOL MUTE" if v[1] else f"VOL {v[0]}%"
+
+
+def mic():
+    return "● REC" if voice.recording() else ""
+
+
+class Refresh(Exception):
+    """aios-voice y las teclas piden repintar ya (SIGUSR1), sin esperar 5 s."""
+
+
+def on_refresh(signum, frame):
+    raise Refresh
+
+
 def mem_free():
     for line in open("/proc/meminfo"):
         if line.startswith("MemAvailable:"):
@@ -70,7 +93,7 @@ def mem_free():
 
 
 def line():
-    parts = [ai(), network(), battery(), mem_free(), time.strftime("%a %d %b %H:%M")]
+    parts = [mic(), ai(), network(), sound(), battery(), mem_free(), time.strftime("%a %d %b %H:%M")]
     return " | ".join(p for p in parts if p)
 
 
@@ -79,9 +102,13 @@ def main():
         locale.setlocale(locale.LC_TIME, "")
     except locale.Error:
         pass
+    signal.signal(signal.SIGUSR1, on_refresh)
     while True:
-        print(line(), flush=True)
-        time.sleep(5)
+        try:
+            print(line(), flush=True)
+            time.sleep(5)
+        except Refresh:
+            continue
 
 
 if __name__ == "__main__":

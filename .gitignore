@@ -5,3 +5,4 @@ models/*.gguf
 __pycache__/
 models/*.part
 local/
+models/whisper/
