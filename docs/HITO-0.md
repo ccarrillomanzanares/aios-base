@@ -26,6 +26,9 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | Aceleración por GPU | Hecho (29 oct), compila y arranca en QEMU; sin probar en hardware real. mesa 26.1.8 + LLVM 22: iris + crocus (Intel), radeonsi + r600 (AMD), nouveau, virgl, llvmpipe; firmware `xe` añadido. Compilación desde cero: 81 min. `aios-gpu-probe` abre el nodo de render de la GPU principal con GBM+EGL y lee el driver (`eglGetDisplayDriverName`): si es software (`kms_swrast`) o no inicializa, `aios-session` usa pixman; resultado en `~/.local/state/aios/gpu.log`. El reintento por log de sway queda como segunda red |
 | Tildes en el teclado es | `/usr/share/X11/locale` con la tabla de Compose de libX11 1.8.13: sin ella xkbcommon no tenía teclas muertas y no se podía escribir «á» en foot |
 | `aios-diag` mide la velocidad del modelo | `bench.txt`: una respuesta de 64 tokens con los `timings` de llama-server (tokens/s de prompt y de generación) |
+| CLI `aios` (adelanto del hito 1) | Paquete Python en `/usr/lib/aios/aios`, contrato JSON (`--json` en cualquier posición; errores de uso e internos también en JSON). `aios net status`, `aios net wifi scan/connect/disconnect` (iwd por D-Bus con `busctl --json`; `iwctl` solo para entregar la contraseña) y `aios ui brightness [up/down/N]` (logind `SetBrightness`, mínimo 5 %) |
+| Barra y teclas del portátil | `aios-status` en Python, un solo proceso: modelo, red (SSID o ETH), batería, RAM y hora. Teclas de brillo en sway |
+| Chat: contexto y velocidad | `aios-chat` lee `n_ctx` de `/props`, olvida los turnos más antiguos por encima del 75 % (estimación calibrada con el `usage` del servidor) y, si llama-server aún rechaza por contexto, recorta y reintenta. tok/s de los `timings` del servidor. Probado contra el llama-server de la imagen en nativo con contexto 1024 |
 | Arranque en el HP 15s | **Pendiente** |
 
 ## Decisiones ya tomadas
@@ -37,6 +40,13 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 - Contexto local de 16K; puerto 8083 como en aios-lfs.
 - **mesa con LLVM** (29 oct): iris y crocus (Intel), radeonsi (AMD) y llvmpipe lo exigen en mesa 26; iris además necesita el compilador precompilado (host-mesa3d + libclc). Buildroot descarta iris sin avisar si falta LLVM. Antes (28 oct) iba sin LLVM y en Intel y AMD moderna sway dibujaba con pixman.
 - **Cada imagen para hardware real agrupa todos los cambios verificados**: el ciclo compilar → descargar → grabar USB → probar es largo. Verificar en el VPS todo lo posible antes (Kconfig, compilación, QEMU, scripts ejecutados dentro de la imagen).
+
+## Ideas apuntadas (sin hacer)
+
+- Actualizar el código de AIOS desde git en el propio equipo, sin regrabar el USB (propuesta del usuario).
+- `CTX=auto` en `llama.conf`: calcular el contexto con la RAM libre, el modelo y su contexto de entrenamiento. Probar antes en hardware real (si se pasa, el modelo se queda sin memoria).
+- Proveedores externos (`ask_server`): el contexto va en la configuración del proveedor; si no se conoce, tabla de modelos o pregunta al usuario; como red, el error de contexto excedido.
+- `systemd-backlight` para recordar el brillo entre arranques (cambia la configuración de systemd: compilación desde cero).
 
 ## Lecciones de este hito
 

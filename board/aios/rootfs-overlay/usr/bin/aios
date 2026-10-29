@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+# AIOS — CLI del sistema; el código está en /usr/lib/aios/aios.
+import sys
+
+sys.path.insert(0, "/usr/lib/aios")
+from aios.cli import main  # noqa: E402
+
+sys.exit(main())

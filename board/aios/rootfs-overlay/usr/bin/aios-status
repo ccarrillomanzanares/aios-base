@@ -1,14 +1,82 @@
-#!/bin/sh
-# AIOS — línea de estado de swaybar: estado del modelo, RAM libre y hora.
-while :; do
-    if curl -fs -m 1 http://127.0.0.1:8083/health >/dev/null 2>&1; then
-        ai="AI ONLINE"
-    elif systemctl -q is-active aios-llama.service; then
-        ai="AI LOADING"
-    else
-        ai="AI OFFLINE"
-    fi
-    mem=$(awk '/^MemAvailable:/ {printf "%.1f", $2/1048576}' /proc/meminfo)
-    echo "$ai | RAM ${mem}G free | $(date '+%a %d %b %H:%M')"
-    sleep 5
-done
+#!/usr/bin/env python3
+"""AIOS — línea de estado de swaybar: modelo, red, batería, RAM libre y hora.
+
+Un solo proceso que se queda vivo (no lanza un intérprete cada 5 s). La red
+sale de aios.net, el mismo código que 'aios net status'. AIOS_SYSFS cambia la
+raíz de /sys para las pruebas.
+"""
+import glob
+import os
+import subprocess
+import sys
+import time
+import urllib.request
+
+sys.path.insert(0, "/usr/lib/aios")
+from aios import net  # noqa: E402
+
+SYSFS = os.environ.get("AIOS_SYSFS", "/sys")
+LLAMA = "http://127.0.0.1:{}/health".format(os.environ.get("AIOS_LLAMA_PORT", "8083"))
+
+
+def ai():
+    try:
+        with urllib.request.urlopen(LLAMA, timeout=1) as r:
+            if r.status == 200:
+                return "AI ONLINE"
+    except OSError:
+        pass
+    rc = subprocess.run(["systemctl", "-q", "is-active", "aios-llama.service"]).returncode
+    return "AI LOADING" if rc == 0 else "AI OFFLINE"
+
+
+def network():
+    try:
+        ifaces = net.status(check_internet=False).data.get("interfaces", [])
+    except Exception:
+        return "NET ?"
+    for i in ifaces:  # wifi conectado primero, luego cable con dirección
+        if i["type"] == "wifi" and i.get("ssid") and i["ipv4"]:
+            return f'WIFI {i["ssid"]}'
+    for i in ifaces:
+        if i["type"] == "ethernet" and i["ipv4"]:
+            return "ETH"
+    return "NET OFF"
+
+
+def battery():
+    out = []
+    for bat in sorted(glob.glob(os.path.join(SYSFS, "class", "power_supply", "BAT*"))):
+        try:
+            cap = open(os.path.join(bat, "capacity")).read().strip()
+            st = open(os.path.join(bat, "status")).read().strip()
+        except OSError:
+            continue
+        mark = {"Charging": "+", "Full": ""}.get(st, "")
+        out.append(f"BAT {cap}%{mark}")
+    return " ".join(out)
+
+
+def mem_free():
+    for line in open("/proc/meminfo"):
+        if line.startswith("MemAvailable:"):
+            return "RAM {:.1f}G free".format(int(line.split()[1]) / 1048576)
+    return ""
+
+
+def line():
+    parts = [ai(), network(), battery(), mem_free(), time.strftime("%a %d %b %H:%M")]
+    return " | ".join(p for p in parts if p)
+
+
+def main():
+    while True:
+        print(line(), flush=True)
+        time.sleep(5)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (BrokenPipeError, KeyboardInterrupt):
+        pass

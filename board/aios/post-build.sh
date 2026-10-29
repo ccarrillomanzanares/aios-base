@@ -7,11 +7,13 @@ ROOT_DIR="$(readlink -f "$BOARD_DIR/../..")"
 # --- Scripts del overlay: primero LF, DESPUÉS el bit de ejecución -------------
 # (lección de newos: editados desde Windows llegan con CRLF y el shebang falla;
 #  y "tr > f.lf && mv" crea un fichero nuevo 0644, así que el chmod va al final)
-for f in "$TARGET_DIR"/usr/bin/aios-* "$TARGET_DIR"/home/aios/.bash_profile; do
+for f in "$TARGET_DIR"/usr/bin/aios "$TARGET_DIR"/usr/bin/aios-* \
+         "$TARGET_DIR"/usr/lib/aios/aios/*.py "$TARGET_DIR"/home/aios/.bash_profile; do
     [ -f "$f" ] || continue
     tr -d '\r' < "$f" > "$f.lf" && mv -f "$f.lf" "$f"
 done
-chmod 0755 "$TARGET_DIR"/usr/bin/aios-*
+chmod 0755 "$TARGET_DIR"/usr/bin/aios "$TARGET_DIR"/usr/bin/aios-*
+chmod 0644 "$TARGET_DIR"/usr/lib/aios/aios/*.py
 
 # --- llama.cpp: backends de CPU en un único sitio ----------------------------
 # Con GGML_BACKEND_DL las variantes (libggml-cpu-haswell.so, -skylakex...) se

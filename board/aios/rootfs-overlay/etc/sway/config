@@ -63,6 +63,10 @@ bindsym $mod+Shift+3 move container to workspace number 3
 bindsym $mod+Shift+4 move container to workspace number 4
 bindsym $mod+Shift+5 move container to workspace number 5
 
+# Teclas de brillo del portátil (--locked: también con la pantalla bloqueada)
+bindsym --locked XF86MonBrightnessUp exec aios ui brightness up
+bindsym --locked XF86MonBrightnessDown exec aios ui brightness down
+
 # --- Arranque: la consola del agente en el espacio 1 ---------------------------
 # Al salir del chat queda una shell en la misma ventana.
 exec $term --title "AIOS" sh -c 'aios-chat; exec bash'
