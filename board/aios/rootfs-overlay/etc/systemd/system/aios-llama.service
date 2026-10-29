@@ -9,6 +9,8 @@ StartLimitBurst=3
 Type=simple
 ExecStart=/usr/bin/aios-llama
 DynamicUser=yes
+# Plantilla del chat generada al arrancar (aios-llama)
+RuntimeDirectory=aios-llama
 # El modelo se lee desde disco: sin red ni escritura fuera de lo imprescindible.
 ProtectSystem=strict
 ProtectHome=yes

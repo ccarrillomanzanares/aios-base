@@ -17,12 +17,23 @@ jcode() { python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip()
 # --- Sistema --------------------------------------------------------------------
 [ -z "$(systemctl --failed --no-legend)" ] && pass services-ok || fail services-ok "$(systemctl --failed --no-legend | tr '\n' ' ')"
 [ "$(systemctl is-active sshd)" != active ] && pass sshd-off || fail sshd-off "sshd is running"
+# Cortafuegos: tabla cargada y entrada cerrada por defecto (la salida la prueban
+# todas las comprobaciones que bajan algo del VPS)
+fw=$(S nft list chain inet aios input 2>&1)
+echo "$fw" | grep -q 'policy drop' && pass firewall-on || fail firewall-on "$(systemctl is-active aios-firewall) $(echo "$fw" | head -2 | tr '\n' ' ')"
+S systemctl reload aios-firewall && [ "$(S nft list tables | grep -c 'inet aios')" = 1 ] && pass firewall-reload || fail firewall-reload "reload failed or duplicated table"
 open=$(ss -ltnuH 2>/dev/null | awk '{print $5}' | grep -vE '^(127\.|\[::1\]|.*%lo:|10\.0\.2\.15%.*:68$)' | tr '\n' ' ')
 [ -z "$open" ] && pass no-open-ports || fail no-open-ports "$open"
 grep -q '^COMMIT=' /etc/aios/build-info && pass build-info || fail build-info "missing"
 # (el passwd de BusyBox no tiene -S: el estado se lee de /etc/shadow)
 [ -n "$(S grep '^root:' /etc/shadow | cut -d: -f2)" ] && pass root-status || fail root-status "no root entry in shadow"
 command -v chpasswd >/dev/null && pass chpasswd-present || fail chpasswd-present "aios-firstboot needs it"
+# La VM tiene puerto serie (tipo 16550A): la condición de aios-uart.conf debe dejar su getty
+[ "$(systemctl is-active serial-getty@ttyS0)" = active ] && pass serial-getty || fail serial-getty "$(systemctl is-active serial-getty@ttyS0)"
+# Historial estable para la caché del prompt (plantilla generada por aios-llama)
+llargs=$(tr '\0' ' ' < /proc/$(pidof llama-server | cut -d' ' -f1)/cmdline 2>/dev/null)
+echo "$llargs" | grep -q -- '--chat-template-file' && pass llama-stable-template || \
+    fail llama-stable-template "$(echo "$llargs" | cut -c1-200)"
 
 # --- Red -------------------------------------------------------------------------
 check net-status aios net status
@@ -36,6 +47,8 @@ S networkctl reload; iwctl device wlan1 set-property Mode ap; sleep 2
 iwctl ap wlan1 start AIOS-TEST testpass123; sleep 2; S networkctl reconfigure wlan1; sleep 3
 aios net wifi scan | grep -q AIOS-TEST && pass wifi-scan || fail wifi-scan "AIOS-TEST not found"
 [ "$(aios net wifi connect AIOS-TEST --json | jcode)" = WIFI_NEEDS_PASSWORD ] && pass wifi-needs-password || fail wifi-needs-password "?"
+# Nombre aproximado (como lo escribe el modelo o la voz): encuentra AIOS-TEST
+[ "$(aios net wifi connect "aios test" --json | jcode)" = WIFI_NEEDS_PASSWORD ] && pass wifi-fuzzy-ssid || fail wifi-fuzzy-ssid "?"
 [ "$(aios net wifi connect AIOS-TEST --password malamala1 --json | jcode)" = WIFI_AUTH_FAILED ] && pass wifi-bad-password || fail wifi-bad-password "?"
 S ls /var/lib/iwd | grep -q AIOS-TEST && fail wifi-no-residue "profile saved after failure" || pass wifi-no-residue
 r=$(aios net wifi connect AIOS-TEST --password testpass123 --json); [ "$(echo "$r" | jcode)" = OK ] && pass wifi-connect || fail wifi-connect "$r"
@@ -46,6 +59,10 @@ check wifi-disconnect aios net wifi disconnect
 for u in pipewire pipewire-pulse wireplumber; do
     [ "$(systemctl --user is-active $u)" = active ] && pass "audio-$u" || fail "audio-$u" "$(systemctl --user is-active $u)"
 done
+# Solo los de usuario: los de sistema abrían la tarjeta y dejaban sin micrófono (HP 15s)
+sysaudio=$(systemctl list-units --no-legend --plain 'pipewire*' 'wireplumber*' | awk '{print $1}' | tr '\n' ' ')
+[ -z "$sysaudio" ] && pass audio-no-system-pipewire || fail audio-no-system-pipewire "$sysaudio"
+[ -f /usr/lib/spa-0.2/bluez5/libspa-bluez5.so ] && pass audio-bluetooth-plugin || fail audio-bluetooth-plugin "PipeWire built without bluez5"
 check audio-status aios audio status
 check audio-volume aios audio volume 60
 pactl info 2>/dev/null | grep -q "on PipeWire" && pass audio-pulse-apps || fail audio-pulse-apps "pactl does not see PipeWire"
@@ -71,6 +88,7 @@ ls /lib/firmware/intel/sof/sof-icl.ri >/dev/null 2>&1 && ls /usr/share/alsa/ucm2
 # --- Pantalla y diagnóstico -----------------------------------------------------------
 # La VM es lenta: swayidle ya habrá apagado la pantalla y grim no tendría qué copiar
 SWAYSOCK=$(ls /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -1) swaymsg 'output * power on' >/dev/null
+sleep 3  # hasta que sway pinte un fotograma, grim falla ("failed to copy output")
 f=$(aios-screenshot) && [ -s "$f" ] && pass screenshot || fail screenshot "$f"
 aios-diag --local > /tmp/diag.out 2>&1
 t=$(sed -n 's/.*saved \(\/tmp\/[^ ]*\.tar\.gz\).*/\1/p' /tmp/diag.out)
@@ -81,6 +99,12 @@ gzip -dc "$t" | tar -tf - | grep -q 'audio.txt' && pass diag-audio || fail diag-
 export WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-1}
 for p in swayidle mako; do pgrep -x $p >/dev/null && pass "desktop-$p" || fail "desktop-$p" "not running"; done
 command -v swaylock >/dev/null && pass desktop-swaylock || fail desktop-swaylock "missing"
+# swaylock comprueba la contraseña con PAM como aios, es decir, con unix_chkpwd:
+# sin setuid rechazaba todas y el bloqueo no se podía quitar
+printf '%s\0' "$PW" | /usr/sbin/unix_chkpwd aios nullok && pass lock-password-ok || \
+    fail lock-password-ok "$(ls -l /usr/sbin/unix_chkpwd)"
+printf '%s\0' "no-es-$PW" | /usr/sbin/unix_chkpwd aios nullok 2>/dev/null && \
+    fail lock-password-wrong "accepted a wrong password" || pass lock-password-wrong
 python3 -c "import sys; sys.path.insert(0,'/usr/lib/aios'); from aios import notify; sys.exit(0 if notify.send('AIOS test', 'notification') else 1)" \
     && pass notify-send || fail notify-send "mako did not take it"
 n=$(aios ui display list --json | python3 -c 'import json,sys; print(len(json.loads(sys.stdin.read().strip().splitlines()[-1])["data"]["displays"]))')
@@ -120,6 +144,12 @@ python3 -c 'import locale; locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")' 2>/de
     [ "$(aios ai use mock --json | jcode)" = CONFIRM_REQUIRED ] && pass ai-use-needs-confirm || fail ai-use-needs-confirm "?"
     check ai-use aios ai use mock --confirm send-mock
     check ai-status aios ai status
+    check ai-models aios ai models mock
+    check ai-use-model aios ai use mock --model mock-35b
+    # Emparejamiento: interactivo (con --json avisa), y sus herramientas
+    [ "$(aios ai pair --json | jcode)" = AI_PAIR_INTERACTIVE ] && pass ai-pair-json || fail ai-pair-json "?"
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out /tmp/k.pem 2>/dev/null &&
+        qrencode -t ANSIUTF8 https://ccmai.org >/dev/null && pass ai-pair-tools || fail ai-pair-tools "openssl or qrencode"
     aios ai use local >/dev/null; aios ai remove mock >/dev/null
 }
 

@@ -8,6 +8,19 @@ export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=sway
 [ -n "$XDG_RUNTIME_DIR" ] || export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 
+# El autologin llega antes que la gráfica en equipos lentos: en el HP 15-ba
+# (A8-7410, radeon, desde USB) la sesión empezaba a los 10,8 s, la tarjeta
+# estaba lista a los 12,8 s y udev aún no le había dado permisos ni puesto en
+# el puesto (seat): sway fallaba con "Found 0 GPUs" y, sin poder abrir el nodo
+# de render, la prueba de GPU elegía pixman. Se espera a que udev termine.
+wait_gpu() {
+    if ! udevadm settle --timeout=1 2>/dev/null; then
+        echo "AIOS: waiting for the graphics card..."
+        udevadm settle --timeout="${1:-45}" 2>/dev/null
+    fi
+}
+wait_gpu
+
 # Sin driver 3D para la GPU (o sin nodo de render), wlroots dibuja con pixman.
 # No se deja a mesa caer a llvmpipe: dibujaría con varios hilos de CPU, los
 # mismos que necesita el modelo. El cursor por hardware falla en virtio-gpu y
@@ -15,6 +28,7 @@ export XDG_CURRENT_DESKTOP=sway
 gpu=$(aios-gpu-probe 2>/dev/null)
 if [ $? -ne 0 ] && [ -z "$WLR_RENDERER" ]; then
     export WLR_RENDERER=pixman
+    pixman_forced=1
 fi
 echo "aios-session: gpu probe: ${gpu:-none}, renderer: ${WLR_RENDERER:-auto}" > "$LOG_DIR/gpu.log"
 export WLR_NO_HARDWARE_CURSORS=1
@@ -22,6 +36,16 @@ export WLR_NO_HARDWARE_CURSORS=1
 [ -f "$LOG_DIR/sway.log" ] && mv -f "$LOG_DIR/sway.log" "$LOG_DIR/sway.log.old"
 sway > "$LOG_DIR/sway.log" 2>&1
 rc=$?
+
+# Si aun así la tarjeta no estaba (udev atascado con otro módulo), otra espera
+# y otra vez desde el principio, con la prueba de GPU incluida
+if [ $rc -ne 0 ] && [ -z "$AIOS_SESSION_RETRY" ] && grep -q "Found 0 GPUs" "$LOG_DIR/sway.log"; then
+    mv -f "$LOG_DIR/sway.log" "$LOG_DIR/sway-nogpu.log"
+    wait_gpu 60
+    sleep 2
+    [ -n "$pixman_forced" ] && unset WLR_RENDERER  # la prueba de GPU se repite
+    AIOS_SESSION_RETRY=1 exec "$0"
+fi
 
 # Hay nodo de render pero mesa no trae driver para esa GPU (Intel sin iris en
 # el hito 0): EGL falla y sway sale. Se reintenta con pixman.

@@ -75,6 +75,14 @@ grep -E "^(OK|WARN|FAIL) " "$dir/selftest.txt" | sed 's/^/  /'
 run audio.txt sh -c 'aios audio status; echo; wpctl status; echo; cat /proc/asound/cards;
     echo; aplay -l; echo; arecord -l; echo; systemctl --user status pipewire pipewire-pulse wireplumber --no-pager'
 run audio-dump.json pw-dump
+# Códec (pines, conectores y su detección), mandos de ALSA y procesos de audio
+# (sin root no se ve quién tiene abierta la tarjeta): sin altavoz o sin micrófono, aquí se ve si es el kernel o PipeWire
+run audio-codec.txt sh -c 'for f in /proc/asound/card*/codec#*; do echo "== $f"; cat "$f"; done'
+run audio-alsa.txt sh -c 'for c in /proc/asound/card[0-9]*; do n=${c##*card}; echo "== card $n";
+    amixer -c "$n" contents; done; echo; echo "== audio processes (two pipewire/wireplumber = two instances fighting for the card):";
+    for p in /proc/[0-9]*; do c=$(cat "$p/comm" 2>/dev/null); case "$c" in pipewire*|wireplumber)
+        echo "${p#/proc/} $c uid=$(awk "/^Uid:/{print \$2}" "$p/status")";; esac; done;
+    echo; systemctl list-units --no-pager "pipewire*" "wireplumber*"'
 
 # --- Últimas capturas de pantalla (tecla Impr Pant): lo que vio el usuario ---
 if [ "$shots" = yes ]; then
@@ -100,15 +108,25 @@ copy /etc/aios/llama.conf llama.conf
 # Velocidad del modelo en este equipo: una respuesta corta; "timings" trae
 # tokens/s de lectura del prompt (prompt_per_second) y de generación
 # (predicted_per_second). Se salta si llama-server no está listo.
+# Prompt de unos 300 tokens: con uno corto no se ve la velocidad de lectura
+bench_prompt() {
+    i=0; p=""
+    while [ $i -lt 12 ]; do
+        p="$p An operating system manages memory, processes, files and devices for the programs that run on a computer."
+        i=$((i + 1))
+    done
+    echo "$p Explain in three sentences what an operating system does."
+}
 if curl -s -m 5 http://127.0.0.1:8083/health 2>/dev/null | grep -q '"ok"'; then
     echo "AIOS diag: measuring model speed (up to 3 min)..."
     RUN_TIMEOUT=200
     run bench.txt curl -s -m 180 http://127.0.0.1:8083/completion \
         -H "Content-Type: application/json" \
-        -d "{\"prompt\": \"Explain in three sentences what an operating system does.\", \"n_predict\": ${BENCH_TOKENS:-64}, \"cache_prompt\": false}"
+        -d "{\"prompt\": \"$(bench_prompt)\", \"n_predict\": ${BENCH_TOKENS:-64}, \"cache_prompt\": false}"
     RUN_TIMEOUT=20
     speed=$(grep -o '"predicted_per_second":[0-9.]*' "$dir/bench.txt" | cut -d: -f2 | cut -c1-5)
-    [ -n "$speed" ] && echo "AIOS diag: model speed: $speed tokens/s"
+    pspeed=$(grep -o '"prompt_per_second":[0-9.]*' "$dir/bench.txt" | cut -d: -f2 | cut -c1-5)
+    [ -n "$speed" ] && echo "AIOS diag: model speed: $speed tokens/s writing, $pspeed tokens/s reading the prompt"
 fi
 run models.txt ls -l /usr/share/aios/models
 

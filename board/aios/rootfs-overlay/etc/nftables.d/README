@@ -1,0 +1,3 @@
+# Reglas locales del cortafuegos (*.nft), tras la tabla inet aios de /etc/nftables.conf.
+# Ejemplo, ssh.nft:
+#   add rule inet aios input tcp dport 22 accept

@@ -74,6 +74,25 @@ def model_info(path):
             "layers": layers, "attention_layers": attn_layers, "kv_bytes_per_token": kv_per_token}
 
 
+# Plantillas Qwen3/3.5: solo las respuestas posteriores a la última pregunta del
+# usuario llevan el bloque <think>; al llegar otra pregunta, las anteriores se
+# pintan sin él. El prefijo cambia y llama-server, que en modelos híbridos solo
+# puede volver a un checkpoint cercano al final, procesa casi toda la conversación
+# de nuevo en cada mensaje (90-120 s en el HP 15s). Con el bloque en todas, la
+# conversación pintada no cambia: sin razonamiento queda "<think>\n\n</think>",
+# lo mismo que pone el prompt de generación con enable_thinking=false.
+_THINK_ONLY_LAST = "{%- if loop.index0 > ns.last_query_index %}"
+_THINK_ALWAYS = "{%- if true %}"
+
+
+def stable_template(path):
+    """Plantilla del modelo con el historial estable, o None si no hace falta."""
+    tpl = metadata(path).get("tokenizer.chat_template")
+    if not isinstance(tpl, str) or tpl.count(_THINK_ONLY_LAST) != 1:
+        return None
+    return tpl.replace(_THINK_ONLY_LAST, _THINK_ALWAYS)
+
+
 GIB = 1024 ** 3
 RESERVE = 1.5 * GIB   # sistema, sway, terminal y algo de caché de disco
 COMPUTE = 0.5 * GIB   # búferes de cálculo de llama.cpp
@@ -115,5 +134,12 @@ if __name__ == "__main__":
         n, why = auto_context(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else None)
         print(n)
         print(f"auto context {n}: {why}", file=sys.stderr)
+    elif len(sys.argv) == 4 and sys.argv[1] == "template":
+        # aios-llama: python3 gguf.py template <modelo> <salida>; código 1 = no hace falta
+        tpl = stable_template(sys.argv[2])
+        if tpl is None:
+            sys.exit(1)
+        with open(sys.argv[3], "w") as f:
+            f.write(tpl)
     else:
-        sys.exit("usage: gguf.py auto <model.gguf> [mmproj.gguf]")
+        sys.exit("usage: gguf.py auto <model.gguf> [mmproj.gguf] | template <model.gguf> <out.jinja>")

@@ -5,8 +5,9 @@ Los proveedores son servidores con API compatible con OpenAI. Se guardan en
 averigua al añadirlo:
   1. llama.cpp:   /props -> n_ctx (el real del servidor)
   2. /v1/models:  context_length / max_model_len / meta.n_ctx, si lo da
-  3. tabla de modelos conocidos
-  4. se pregunta al usuario (o --context N)
+  3. Ollama (también Ollama Cloud): /api/show -> model_info.<arch>.context_length
+  4. tabla de modelos conocidos
+  5. se pregunta al usuario (o --context N)
 El chat recorta la conversación a ese contexto y, si aun así el servidor la
 rechaza por tamaño, recorta y reintenta.
 """
@@ -62,8 +63,13 @@ def provider(name=None):
     return dict(p, name=name, local=False)
 
 
+# Cloudflare (delante de ccmai.org y de muchos proveedores) responde 403 al
+# agente por defecto de Python ("Python-urllib"): se identifica como AIOS
+USER_AGENT = "AIOS/1.0"
+
+
 def headers(p):
-    h = {"Content-Type": "application/json"}
+    h = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
     if p.get("api_key"):
         hdr = p.get("key_header") or "Authorization"
         h[hdr] = ("Bearer " + p["api_key"]) if hdr.lower() == "authorization" else p["api_key"]
@@ -112,6 +118,17 @@ def detect_context(p):
                     return int(meta["n_ctx_train"]), "server /models (training context)"
     except (urllib.error.URLError, OSError, ValueError, AttributeError):
         pass
+    if p.get("model"):
+        try:
+            req = urllib.request.Request(server_root(p["url"]) + "/api/show", headers=headers(p),
+                                         data=json.dumps({"model": p["model"]}).encode())
+            with urllib.request.urlopen(req, timeout=10, context=ssl_context(p)) as r:
+                info = json.load(r).get("model_info") or {}
+            n = next((v for k, v in info.items() if k.endswith(".context_length")), None)
+            if n:
+                return int(n), "server /api/show (Ollama)"
+        except (urllib.error.URLError, OSError, ValueError, AttributeError):
+            pass
     model = (p.get("model") or "").lower()
     for prefix, n in KNOWN_CONTEXT:
         if model.startswith(prefix):
@@ -135,6 +152,15 @@ def reachable(p):
         return False, f"HTTP {e.code}"
     except (urllib.error.URLError, OSError, ValueError) as e:
         return False, str(getattr(e, "reason", e))
+
+
+def model_ids(p):
+    """Modelos que ofrece el servidor (lista vacía si no lo dice)."""
+    try:
+        data = get_json(p["url"].rstrip("/") + "/models", p).get("data", [])
+    except (urllib.error.URLError, OSError, ValueError, AttributeError):
+        return []
+    return sorted({m.get("id") for m in data if isinstance(m, dict) and m.get("id")})
 
 
 # --- comandos ------------------------------------------------------------------------
@@ -220,10 +246,39 @@ def add(args):
                        f'context {p["context"]} tokens ({source}).')
 
 
+def models(args):
+    p = provider(args.name)
+    if args.name and args.name != "local" and args.name not in load()["providers"]:
+        return fail("AI_UNKNOWN_PROVIDER", "Run: aios ai list", {"name": args.name})
+    ids = model_ids(p)
+    data = {"name": p["name"], "model": p.get("model"), "models": ids}
+    if not ids:
+        return Result(False, "AI_NO_MODEL_LIST", data, "Set one with: aios ai use <provider> --model <id>",
+                      text=f'{p["name"]} does not list its models.')
+    lines = [f'{"*" if i == p.get("model") else " "} {i}' for i in ids]
+    return Result(True, "OK", data, f'Run: aios ai use {p["name"]} --model <id>', text="\n".join(lines))
+
+
 def use(args):
     cfg = load()
     if args.name != "local" and args.name not in cfg["providers"]:
         return fail("AI_UNKNOWN_PROVIDER", "Run: aios ai list", {"name": args.name})
+    if getattr(args, "model", None):
+        if args.name == "local":
+            return fail("AI_LOCAL_MODEL", "Edit MODEL in /etc/aios/llama.conf.",
+                        text="The local model is chosen in /etc/aios/llama.conf.")
+        q = cfg["providers"][args.name]
+        if q.get("model") != args.model:
+            ids = model_ids(dict(q, name=args.name))
+            if ids and args.model not in ids:
+                return fail("AI_UNKNOWN_MODEL", f"Run: aios ai models {args.name}",
+                            {"model": args.model, "models": ids[:50]},
+                            text=f'{args.name} has no model "{args.model}".')
+            q["model"] = args.model
+            n, _ = detect_context(q)  # otro modelo, quizá otro contexto
+            if n:
+                q["context"] = n
+            save(cfg)
     p = provider(args.name)
     if not p["local"] and cfg["active"] != args.name:
         # Los datos salen del equipo: confirmación explícita (contrato: token)
@@ -257,6 +312,11 @@ def remove(args):
                   text=f'Removed "{args.name}" (and its API key). Using "{cfg["active"]}".')
 
 
+def _pair(args):
+    from . import pair  # pair importa este módulo
+    return pair.pair(args)
+
+
 def _look(args):
     from . import look  # look importa este módulo
     return look.look(args)
@@ -280,8 +340,15 @@ def register(sub):
     a.set_defaults(func=add)
     u = s.add_parser("use", help="switch to a provider (or 'local')")
     u.add_argument("name")
+    u.add_argument("--model", help="model id on that provider (see: aios ai models)")
     u.add_argument("--confirm", metavar="TOKEN")
     u.set_defaults(func=use)
+    m = s.add_parser("models", help="models offered by a provider (default: the active one)")
+    m.add_argument("name", nargs="?")
+    m.set_defaults(func=models)
+    pr = s.add_parser("pair", help="add a provider typing its API key on a phone or another computer")
+    pr.add_argument("--server", help="pairing server (default: the AIOS one)")
+    pr.set_defaults(func=_pair)
     lk = s.add_parser("look", help="ask the model about what is on the screen")
     lk.add_argument("question", nargs="?")
     lk.add_argument("--file", help="an image instead of a screen capture")

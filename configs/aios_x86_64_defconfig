@@ -27,6 +27,7 @@ BR2_TARGET_TZ_INFO=y
 BR2_TARGET_LOCALTIME="Europe/Madrid"
 BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES="$(BR2_EXTERNAL_AIOS_PATH)/board/aios/busybox.fragment"
 BR2_ROOTFS_USERS_TABLES="$(BR2_EXTERNAL_AIOS_PATH)/board/aios/users.txt"
+BR2_ROOTFS_DEVICE_TABLE="system/device_table.txt $(BR2_EXTERNAL_AIOS_PATH)/board/aios/permissions.txt"
 BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_AIOS_PATH)/board/aios/rootfs-overlay"
 BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_AIOS_PATH)/board/aios/post-build.sh"
 BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_AIOS_PATH)/board/aios/post-image.sh"
@@ -161,6 +162,8 @@ BR2_PACKAGE_BLUEZ5_UTILS_CLIENT=y
 BR2_PACKAGE_BLUEZ5_UTILS_PLUGINS_AUDIO=y
 BR2_PACKAGE_BLUEZ5_UTILS_PLUGINS_HID=y
 BR2_PACKAGE_BLUEZ5_UTILS_PLUGINS_HOG=y
+# Sin SBC, PipeWire se compila sin Bluetooth (pipewire.mk pide bluez5 + sbc + glib)
+BR2_PACKAGE_SBC=y
 BR2_PACKAGE_LINUX_FIRMWARE_IBT=y
 BR2_PACKAGE_LINUX_FIRMWARE_RTL_87XX_BT=y
 BR2_PACKAGE_LINUX_FIRMWARE_RTL_88XX_BT=y
@@ -204,3 +207,13 @@ BR2_TARGET_ROOTFS_EXT2_SIZE="7168M"
 BR2_PACKAGE_HOST_GENIMAGE=y
 BR2_PACKAGE_HOST_DOSFSTOOLS=y
 BR2_PACKAGE_HOST_MTOOLS=y
+
+# --- Proveedores de IA: emparejamiento (aios ai pair) ----------------------------
+# La clave se pega en el móvil o el PC; el navegador la cifra con la clave pública
+# que genera el portátil (openssl) y el VPS solo ve texto cifrado. QR en la terminal.
+BR2_PACKAGE_LIBOPENSSL_BIN=y
+BR2_PACKAGE_LIBQRENCODE=y
+BR2_PACKAGE_LIBQRENCODE_TOOLS=y
+
+# --- Cortafuegos: nada entra salvo respuestas (aios-firewall) ---------------------
+BR2_PACKAGE_NFTABLES=y

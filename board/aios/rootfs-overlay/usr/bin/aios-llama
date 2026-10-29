@@ -42,12 +42,26 @@ if [ "$threads" = auto ]; then
     threads=$(lscpu -p=Core,Socket 2>/dev/null | grep -v '^#' | sort -u | wc -l)
     [ "$threads" -gt 0 ] 2>/dev/null || threads=$(nproc)
 fi
+# Prompt: aquí sí cuenta la potencia de cálculo y los hilos SMT ayudan. Todos
+# menos uno, para que la sesión gráfica siga respondiendo.
+threads_batch=${THREADS_BATCH:-auto}
+if [ "$threads_batch" = auto ]; then
+    threads_batch=$(( $(nproc) - 1 ))
+    [ "$threads_batch" -ge "$threads" ] || threads_batch=$threads
+fi
 
 set -- -m "$model" \
     --host "${HOST:-127.0.0.1}" --port "${PORT:-8083}" \
-    -c "$ctx" -t "$threads" -np 1 --jinja
+    -c "$ctx" -t "$threads" -tb "$threads_batch" -np 1 --jinja
 [ -n "$mmproj" ] && set -- "$@" --mmproj "$mmproj"
 
-echo "aios-llama: $(basename "$model")${mmproj:+ + $(basename "$mmproj")}, ctx $ctx, $threads threads"
+# Plantilla con el historial estable para que la caché del prompt sirva entre
+# mensajes (ver stable_template en gguf.py). Si el modelo no la necesita, la suya.
+tpl="${RUNTIME_DIRECTORY:-/tmp}/chat-template.jinja"
+if python3 -I /usr/lib/aios/aios/gguf.py template "$model" "$tpl" 2>/dev/null; then
+    set -- "$@" --chat-template-file "$tpl"
+fi
+
+echo "aios-llama: $(basename "$model")${mmproj:+ + $(basename "$mmproj")}, ctx $ctx, $threads threads ($threads_batch for the prompt)"
 # shellcheck disable=SC2086  # EXTRA_ARGS se parte en palabras a propósito
 exec /usr/bin/llama-server "$@" $EXTRA_ARGS

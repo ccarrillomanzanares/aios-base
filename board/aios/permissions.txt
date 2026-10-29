@@ -1,0 +1,7 @@
+# AIOS — permisos que post-build.sh no puede poner (corre sin root).
+# Formato de makedevs: <ruta> <tipo> <modo> <uid> <gid> - - - - -
+#
+# unix_chkpwd: PAM lo usa para comprobar la contraseña cuando quien pregunta no
+# es root (swaylock corre como aios). Sin setuid no puede leer /etc/shadow y el
+# bloqueo de pantalla rechazaba todas las contraseñas (HP 15s, 29 oct).
+/usr/sbin/unix_chkpwd	f	4755	0	0	-	-	-	-	-

@@ -2,7 +2,7 @@
 
 Exige la clave en X-API-Key (como el servidor del VPS), da el contexto en
 /v1/models, responde en streaming y rechaza como OpenAI lo que no conoce y
-lo que pasa del contexto. Uso: mock_openai.py PUERTO [ctx-in-models|no-ctx]
+lo que pasa del contexto. Rechaza, como Cloudflare, el agente de Python. Uso: mock_openai.py PUERTO [ctx-in-models|no-ctx]
 """
 import json, sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -10,6 +10,9 @@ KEY, HDR, CTX = "secreto123", "X-API-Key", 1500
 MODE = sys.argv[2] if len(sys.argv) > 2 else "ctx-in-models"
 class H(BaseHTTPRequestHandler):
     def auth(self):
+        # Como Cloudflare delante de ccmai.org: el agente por defecto de Python, fuera
+        if self.headers.get("User-Agent", "").startswith("Python-urllib"):
+            self.send_response(403); self.end_headers(); self.wfile.write(b'{"error":"bot"}'); return False
         if self.headers.get(HDR) != KEY:
             self.send_response(401); self.end_headers(); self.wfile.write(b'{"error":"bad key"}'); return False
         return True

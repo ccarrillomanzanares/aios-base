@@ -199,6 +199,20 @@ def networks(objs, dev):
     return nets
 
 
+def _ssid_key(ssid):
+    return "".join(ch for ch in (ssid or "").lower() if ch.isalnum())
+
+
+def match_ssid(nets, ssid):
+    """La red pedida: exacta o, si no, la única que coincide sin mayúsculas,
+    espacios ni signos (el modelo o la voz escriben "livebox 6s f406")."""
+    exact = next((n for n in nets if n["ssid"] == ssid), None)
+    if exact or not _ssid_key(ssid):
+        return exact
+    near = [n for n in nets if _ssid_key(n["ssid"]) == _ssid_key(ssid)]
+    return near[0] if len(near) == 1 else None
+
+
 def bars(dbm):
     return "▂▄▆█"[:max(1, min(4, (dbm + 90) // 10))]
 
@@ -283,12 +297,13 @@ def wifi_connect(args):
         return fail("WIFI_BLOCKED", "Check the wifi switch or airplane mode key.",
                     text="The wifi device cannot be turned on.")
     nets = networks(iwd_objects() or {}, dev)
-    if not any(n["ssid"] == args.ssid for n in nets):
+    if not match_ssid(nets, args.ssid):
         nets = scan(dev)  # sin escaneo reciente, iwd aún no la conoce
-    target = next((n for n in nets if n["ssid"] == args.ssid), None)
+    target = match_ssid(nets, args.ssid)
     if target is None:
         return fail("WIFI_NOT_FOUND", "Run: aios net wifi scan", {"ssid": args.ssid},
                     text=f'Network "{args.ssid}" not found.')
+    args.ssid = target["ssid"]
     if target["connected"]:
         ip = wait_ipv4(dev["name"], 1)
         return Result(True, "OK", {"ssid": args.ssid, "device": dev["name"], "ipv4": ip},

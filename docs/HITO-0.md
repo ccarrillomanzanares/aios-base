@@ -47,9 +47,25 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | Bluetooth | BlueZ (cliente, audio, HID, HOG) + firmware Intel, Realtek, MediaTek y Qualcomm. `aios bt status/on/off/scan/connect/disconnect/remove` por D-Bus; emparejar en modo Just Works (teclados con PIN, pendiente). Los auriculares salen solos en PipeWire |
 | Primer arranque completo | Idioma (`/etc/locale.conf`), teclado (sway al momento + consola), zona horaria, contraseña y red. Locales generados: es, en, ca, fr, de, it, pt |
 | Autoprueba de hardware | `aios sys selftest` (y dentro de `aios-diag`): CPU, GPU, pantallas, brillo, batería con desgaste, wifi, Bluetooth, sonido (tono de 1 kHz por el altavoz buscado en lo que graba el micrófono, Goertzel), modelo y voz (espeak → whisper, con tiempo) |
-| Arranque en el HP 15s | **Pendiente** |
+| Arranque en el HP 15s | **Hecho** (29 oct, USB, UEFI): autoprueba 10/10 sin fallos (iris, 2 pantallas, wifi, Bluetooth, batería, modelo, voz); dos `aios-diag` en `~/aios-diag/` del VPS. Lo que salió y su arreglo, en «Primer arranque en el HP» |
 
-## Traspaso (29 oct, fin de la sesión larga)
+## Traspaso (29 oct, noche) — leer primero
+
+Sesión de la noche: primeros arranques en el HP 15s (2019) y en el HP 15-ba (antiguo), arreglos y proveedores de IA. Detalle en las secciones «Primer arranque en el HP 15s», «Portátil antiguo» y «Cortafuegos y proveedores de IA».
+
+- **Imagen en prueba**: compilada con todo lo de esta sesión; `make test` en marcha al cerrar. Si pasó entero se publicó en `/var/www/ccmai.org/aios/releases/aios.img.xz` (+ `.sha256`); si no, comprobar `build/test-results/` antes de publicar. El usuario pidió publicarla al pasar las pruebas.
+- **Pendiente de confirmar en el HP 15s con la imagen nueva**: beep y micrófono (si fallan, el diag trae ahora `audio-codec.txt` y `audio-alsa.txt`), velocidad entre mensajes (plantilla estable), wifi desde el agente (contraseña sin eco), bloqueo de pantalla, `/pair` con el servidor de ccmai.org (primera prueba con una clave real). En el HP 15-ba: que sway arranque (espera a udev en `aios-session`).
+- **VPS**: el receptor (`aios-diag-receiver`) sirve también el emparejamiento (`/aios-diag/pair`); se reinicia con `sudo systemctl restart aios-diag-receiver` tras tocar `diag-server.py` o `pair.html`. El llama-server de Docker con Caddy (`llama-qwen`, `llama-proxy`, `webuillama.ccmai.org:8443`) es del proyecto **llama-hardened**: no tocarlo ni usar sus claves.
+- **Siguiente: instalador a disco** (decidido con el usuario): borra el disco entero, se probará en el HP 15-ba (tiene una versión antigua de AIOS que se puede perder). Diseño propuesto:
+  - `aios-install` (o `aios sys install`) desde el USB: elige disco (nunca el del propio USB), confirmación escribiendo el nombre del disco, resumen de lo que se borra.
+  - GPT con partición BIOS boot (GRUB i386-pc) + ESP FAT (GRUB EFI, kernel, `grub.cfg`), para BIOS y UEFI como el USB.
+  - Raíz A y raíz B (ext4, mismo tamaño que la del USB o más): se copia la A; la B queda vacía para RAUC (hito 4). `grub.cfg` con slot por defecto en una variable de entorno de GRUB, para que A/B encaje después.
+  - `/home` en LUKS2 (cryptsetup), desbloqueo al arrancar con systemd-cryptsetup (pide la frase en tty1 antes de la sesión). La raíz no se cifra: no hay initramfs (lección de newos).
+  - Paquetes a revisar: `cryptsetup`, `BR2_PACKAGE_SYSTEMD_CRYPTSETUP` (o equivalente en 2026.08), `dosfstools`, `e2fsprogs`, `gptfdisk`/`sfdisk`, kernel con `DM_CRYPT` y AES/XTS `=y`.
+  - Probar primero en QEMU con un disco virtual extra (BIOS y UEFI), añadirlo a `make test`, y solo después al portátil.
+- **Sin push** a GitHub (sigue en `148c7e6`); no hacer push sin que lo pida el usuario.
+
+## Traspaso anterior (29 oct, fin de la sesión larga)
 
 Para retomar en una sesión nueva: leer esta sección, la tabla de estado y `git log`.
 
@@ -60,6 +76,41 @@ Para retomar en una sesión nueva: leer esta sección, la tabla de estado y `git
 - **VPS**: receptor de `aios-diag` activo (`aios-diag-receiver`, Apache `/aios-diag/` en ccmai.org; paquetes en `~/aios-diag/`). En el VPS corre además otro llama-server con Qwen3.6-35B (Docker, `llama-qwen`, tras Caddy en :8443 con `X-API-Key`): no usar su clave sin permiso.
 - **Siguiente paso del hito 0**: arrancar en el HP 15s, ejecutar `aios-diag` (sube autoprueba, capturas y logs) y revisar aquí lo que llegue.
 - **Pendiente de decidir con el usuario**: las «Mejoras propuestas» de abajo (las pidió para revisarlas).
+
+## Primer arranque en el HP 15s (29 oct, noche)
+
+HP Laptop 15s-fq1xxx, i5-1035G1 (Ice Lake, AVX-512), 7,5 GiB, ALC236 por HDA clásico (el micrófono interno es el pin 0x12 del códec, no hace falta SOF). Modelo: 13,8-24 tok/s de prompt y 3,5-4,1 tok/s de generación con 4 hilos.
+
+| Hallazgo | Causa | Arreglo (pendiente de probar en el HP) |
+|---|---|---|
+| Sin micrófono (`WARN sound`; PipeWire sin ninguna fuente, ni perfil de entrada) | Buildroot hace `systemctl preset-all` y habilitaba también los servicios **de sistema** de PipeWire, pipewire-pulse y WirePlumber (usuario `pipewire`, sin HOME): un segundo WirePlumber abría la tarjeta antes que el de aios | `disable` en `10-aios.preset` |
+| Cada mensaje nuevo tardaba 1-2 min antes de responder: llama-server volvía a procesar 1.600-2.200 tokens | La plantilla de Qwen3.5 solo pinta `<think></think>` en las respuestas posteriores a la última pregunta; al llegar otra, el historial cambia y en un modelo híbrido la caché vuelve a un checkpoint antiguo o a cero | `aios-llama` genera al arrancar una plantilla con el bloque en todas las respuestas (`gguf.py template`). Medido en el VPS con los binarios de la imagen: de ~590 tokens reprocesados por mensaje a ~21 |
+| agetty en ttyS0 fallando y reiniciándose cada 10 s (360 líneas de error en el journal) | `console=ttyS0` (para QEMU y pruebas) hace que systemd ponga un getty en un puerto serie que el portátil no tiene | `ExecCondition` en `serial-getty@.service.d/aios-uart.conf`: solo si `/sys/class/tty/ttyS0/type` no es 0 |
+| Bluetooth sin audio (WirePlumber: «BlueZ SPA plugin is missing») | `pipewire.mk` solo activa bluez5 con `BR2_PACKAGE_SBC` | `BR2_PACKAGE_SBC=y` |
+| El agente no conseguía conectar la wifi: pedía confirmación y luego la contraseña no valía; además se veía al escribirla | La contraseña iba en la orden que escribe el modelo (`--password <p>`): el usuario la tecleaba en el chat a la vista (y quedaba en la conversación guardada) y el modelo de 4B tenía que copiarla, y el nombre de la red, al carácter | `aios-chat` intercepta `net wifi connect`: busca la red con un escaneo, pide la contraseña sin eco (pedirla ya es la confirmación; Enter cancela; hasta 3 intentos) y el modelo no la ve nunca. `net.py` acepta el nombre aproximado si solo coincide una red («livebox 6s f406») |
+| El modelo solo usa 4 de los 8 hilos | `THREADS=auto` = núcleos físicos | `-tb` (prompt) con todos los hilos menos uno (`THREADS_BATCH` en `llama.conf`); al generar siguen 4, porque generar lo limita la memoria. El benchmark de `aios-diag` usa ahora un prompt de ~260 tokens para medir también la lectura |
+| Reloj 1 h adelantado hasta que sincroniza NTP (a los 13 min, con el wifi) | El portátil tiene Windows: el RTC va en hora local | Sin tocar: es el arranque dual de siempre. Si molesta, `timedatectl set-local-rtc 1` o ajustar Windows a UTC |
+
+Seguimiento (misma noche): en el HP 15s **tampoco se oía el beep** (la autoprueba daba «output OK» igualmente). En el diag PipeWire marcaba los auriculares como conectados y el altavoz como no disponible; el kernel aplica el ajuste genérico de HP (`ALC269_FIXUP_HP_MUTE_LED`, el 86C9 no tiene uno propio). Sin confirmar si es por el PipeWire doble. `aios-diag` recoge ahora `audio-codec.txt` (pines y detección de conectores), `audio-alsa.txt` (`amixer contents`, procesos de audio con su uid, unidades de sistema de PipeWire).
+
+Bloqueo de pantalla (swaylock) imposible de quitar: rechazaba cualquier contraseña. PAM comprueba la contraseña con `unix_chkpwd`, que debe ser setuid root para leer `/etc/shadow`, y en la imagen estaba a 0755 (post-build no puede poner setuid). Arreglo: `board/aios/permissions.txt` en `BR2_ROOTFS_DEVICE_TABLE` (4755). Prueba nueva en QEMU: contraseña buena aceptada y mala rechazada por `unix_chkpwd`, como hace swaylock. Mientras tanto: Ctrl+Alt+F2 y `pkill swaylock`.
+
+## Portátil antiguo: HP 15-ba (29 oct, noche)
+
+HP Notebook, placa 82F6, AMD A8-7410 (Mullins, Radeon R5, `radeon`), 6,7 GiB, BIOS (no UEFI), wifi RTL8723BE. Sonido con micrófono bien; voz: 56 s para 1,3 s de habla (el modelo aún cargaba).
+
+| Hallazgo | Causa | Arreglo (pendiente de probar) |
+|---|---|---|
+| sway no arranca: «Could not take device: No such device», «Found 0 GPUs» | Carrera: el autologin lanza sway a los 10,8 s y radeon acaba a los 12,8 s; udev seguía con la cola ocupada (cargó `amdgpu` a los 27 s, CPU lenta y USB) y `/dev/dri/card0` aún era `root:root 0600`, sin puesto. La prueba de GPU tampoco podía abrir el nodo de render y forzaba pixman | `aios-session` espera a `udevadm settle` (hasta 45 s, con aviso en pantalla) y, si sway sale con «Found 0 GPUs», espera otra vez y reintenta desde el principio con la prueba de GPU |
+
+## Cortafuegos y proveedores de IA (29 oct, noche)
+
+- **Cortafuegos** (`aios-firewall.service`, `/etc/nftables.conf`): tabla propia `inet aios`; sale todo, entra solo lo establecido/relacionado, loopback, ICMP/ICMPv6 y DHCP. Arranca antes de la red. Reglas locales en `/etc/nftables.d/*.nft` (p. ej. SSH). Pruebas: política `drop` cargada y recarga sin duplicar.
+- **Elegir modelo**: `aios ai models [proveedor]` y `aios ai use <proveedor> --model <id>` (recalcula el contexto). En el chat: `/ai`, `/ai <nombre> [modelo]`, y el chat cambia de proveedor solo si cambia el activo (también si lo cambia el agente).
+- **Emparejamiento** (`aios ai pair`, `/pair` en el chat): el portátil genera una clave RSA-3072 en `XDG_RUNTIME_DIR`, pide un código al VPS y enseña URL y QR (`qrencode`). En `https://ccmai.org/aios-diag/pair` (móvil o PC) se elige proveedor y se pega la clave; el navegador la cifra con WebCrypto (RSA-OAEP SHA-256) y el VPS solo guarda texto cifrado, en memoria, 10 min, y lo borra al entregarlo. El portátil descifra con `openssl`, enseña lo recibido, pide nombre y modelo y confirma antes de usarlo. Servidor: `scripts/diag-server.py` + `scripts/pair.html` (límites por IP con la IP real, la última de `X-Forwarded-For`). Probado de punta a punta contra el servidor real con un proveedor simulado.
+- Proveedores en la página: servidor de ccmai.org (llama-hardened, `https://webuillama.ccmai.org:8443/v1`, `X-API-Key`; es otro proyecto: AIOS solo lo usa, no lo toca), OpenAI, Anthropic, Gemini, Ollama Cloud (`https://ollama.com/v1`; su `/v1/models` no da el contexto: `detect_context` lo saca de `/api/show`, que vale también para un Ollama local), OpenRouter y uno compatible cualquiera. Solo están probados la ruta y el formato; con claves reales, ninguno todavía.
+- **Cloudflare devolvía 403 a `Python-urllib`**: el modelo del VPS y el emparejamiento no habrían funcionado desde AIOS. Todas las peticiones llevan ahora `User-Agent: AIOS/1.0` (`ai.headers()`). El servidor simulado de las pruebas rechaza ese agente como Cloudflare.
+- Instalador a disco: en la imagen siguiente, borrando el disco entero (se probará en el HP 15-ba, que tiene una versión antigua de AIOS).
 
 ## Decisiones ya tomadas
 

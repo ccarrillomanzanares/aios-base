@@ -1,4 +1,19 @@
 # AIOS — servicios que no arrancan solos. sshd: el usuario aios tiene
 # contraseña conocida y sudo; con SSH activo, cualquiera en la misma red podría
-# entrar. Quien lo necesite: sudo systemctl enable --now sshd (solo con claves).
+# entrar. Quien lo necesite: sudo systemctl enable --now sshd (solo con claves) y
+# abrir el puerto en el cortafuegos (ver /etc/nftables.conf).
 disable sshd.service
+
+# Cortafuegos: activo desde el primer arranque
+enable aios-firewall.service
+
+# Sonido: PipeWire y WirePlumber corren como servicios de usuario de aios
+# (post-build.sh). Los de sistema abrían la tarjeta antes y el de usuario se
+# quedaba sin micrófono (HP 15s, 29 oct).
+disable pipewire.service
+disable pipewire.socket
+disable pipewire-manager.socket
+disable pipewire-pulse.service
+disable pipewire-pulse.socket
+disable wireplumber.service
+disable wireplumber@.service

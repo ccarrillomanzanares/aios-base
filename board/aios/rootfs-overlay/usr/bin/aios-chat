@@ -8,6 +8,7 @@ consultas no. Voz: Super+Espacio (aios-voice) o /voice; las respuestas a
 la voz se leen en voz alta. Las conversaciones se guardan y /resume las
 retoma. Solo biblioteca estándar: la imagen no lleva requests.
 """
+import getpass
 import json
 import os
 import random
@@ -25,6 +26,7 @@ sys.path.insert(0, os.environ.get("AIOS_LIB", "/usr/lib/aios"))
 from aios import ai as aiconf  # noqa: E402  (proveedor activo: local o externo)
 from aios import cli as aios_cli  # noqa: E402  (validar órdenes antes de ejecutarlas)
 from aios import look as looker  # noqa: E402
+from aios import net as aiosnet  # noqa: E402  (nombre exacto de la red wifi)
 from aios import voice  # noqa: E402
 
 PORT = os.environ.get("AIOS_LLAMA_PORT", "8083")
@@ -49,14 +51,18 @@ TOOLS = [
         "description": (
             "Run an AIOS system command and get its JSON result. Use ONLY these commands:\n"
             "- net status: network and Internet state\n"
-            "- net wifi scan | net wifi connect <ssid> --password <p> | net wifi disconnect\n"
+            "- net wifi scan | net wifi connect <ssid> | net wifi disconnect\n"
+            "  (never put a wifi password in the command or ask for it in the chat: "
+            "AIOS asks the user for it privately)\n"
             "- audio status: volume and devices | audio volume <0-100|up|down> | "
             "audio mute <on|off> | audio test\n"
             "- ui brightness: read the screen brightness | ui brightness <5-100|up|down>: set it\n"
             "- ui display list | ui display extend | ui display mirror\n"
             "- bt status | bt scan | bt connect <name>\n"
             "- sys selftest: test the hardware\n"
-            "- ai status | update code check"),
+            "- ai status | ai list: providers | ai models [provider]: models it offers\n"
+            "- ai use <provider|local> [--model <id>]: switch AI (to add one, tell the user to type /pair)\n"
+            "- update code check"),
         "parameters": {"type": "object", "properties": {
             "command": {"type": "string", "description": "e.g. 'net wifi scan'"}},
             "required": ["command"]}}},
@@ -68,9 +74,9 @@ TOOLS = [
 ]
 # Consultas que el agente puede hacer sin preguntar (no cambian nada)
 READ_ONLY = [("net", "status"), ("net", "wifi", "scan"), ("audio", "status"),
-             ("ai", "status"), ("ai", "list"), ("update", "code", "check"),
+             ("ai", "status"), ("ai", "list"), ("ai", "models"), ("update", "code", "check"),
              ("ui", "display", "list"), ("bt", "status"), ("bt", "scan"), ("sys", "selftest")]
-VALID_HINT = ("Valid commands: net status, net wifi scan, net wifi connect <ssid> --password <p>, "
+VALID_HINT = ("Valid commands: net status, net wifi scan, net wifi connect <ssid>, "
               "audio status, audio volume <n>, ui brightness [n], ui display list, bt status, "
               "sys selftest, ai status, update code check")
 
@@ -203,6 +209,22 @@ class Session:
         self.tools = True       # se apaga si el proveedor no admite herramientas
         self.speak_always = False
 
+    def follow_active(self):
+        """Si el proveedor activo cambió (/pair, /ai o el agente), se pasa a él."""
+        p = aiconf.provider()
+        if (p["name"], p.get("model")) == (self.provider["name"], self.provider.get("model")):
+            return
+        if not p["local"]:
+            ok, err = aiconf.reachable(p)
+            if not ok:
+                print(f'{p["name"]} is not reachable ({err}); still using {self.provider["name"]}.')
+                return
+        elif not wait_for_server():
+            return
+        self.provider, self.ctx, self.tools = p, Context(p), True
+        where = "this computer" if p["local"] else p["url"]
+        print(f'{DIM}[now using {p["name"]}: {p.get("model") or "local model"}, {where}]{RESET}')
+
 
 def request(messages, sess, stream=True):
     body = {"messages": messages, "stream": stream, "max_tokens": sess.ctx.reply_tokens()}
@@ -306,6 +328,8 @@ def run_aios(command):
     if err:  # orden inexistente o mal escrita: al modelo, sin molestar al usuario
         print(f"{DIM}[not a valid command]{RESET}")
         return {"ok": False, "code": "USAGE", "data": {"error": err}, "hint": VALID_HINT}
+    if [a for a in args if not a.startswith("-")][:3] == ["net", "wifi", "connect"]:
+        return wifi_connect(args)
     if not is_read_only(args) and not ask_yes(f"Run 'aios {shown}'?"):
         return {"ok": False, "code": "USER_DECLINED", "data": {},
                 "hint": "The user did not allow this command."}
@@ -323,6 +347,72 @@ def run_aios(command):
             if not ask_yes(f"{text}\nConfirm?"):
                 return {"ok": False, "code": "USER_DECLINED", "data": {}}
             args = args + ["--confirm", res["confirm"]]
+            continue
+        return res
+    return res
+
+
+def aios_json(args, timeout=180):
+    p = subprocess.run(["aios", *args, "--json"], capture_output=True, text=True,
+                       timeout=timeout, stdin=subprocess.DEVNULL)
+    try:
+        return json.loads(p.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return {"ok": False, "code": "BAD_OUTPUT", "data": {"output": (p.stdout + p.stderr)[-500:]}}
+
+
+def ask_secret(question):
+    try:
+        return getpass.getpass(question)
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return ""
+
+
+def wifi_connect(args):
+    """Conectar a una wifi: la contraseña la teclea el usuario aquí, sin eco, y
+    no pasa por el modelo (ni por la conversación guardada). Pedirla ya es la
+    confirmación; sin contraseña (red abierta o guardada), se pregunta sí/no."""
+    words, extra, skip = [], [], False
+    for i, a in enumerate(args):
+        if skip:
+            skip = False
+        elif a == "--password":
+            skip = True  # la del modelo no se usa: la da el usuario en privado
+        elif a.startswith("--password="):
+            pass
+        elif a.startswith("-"):
+            extra.append(a)
+            if a == "--device" and i + 1 < len(args):
+                extra.append(args[i + 1])
+                skip = True
+        else:
+            words.append(a)
+    ssid = " ".join(words[3:])
+    scan = aios_json(["net", "wifi", "scan", *extra], timeout=60)
+    target = aiosnet.match_ssid((scan.get("data") or {}).get("networks") or [], ssid)
+    if target is None:
+        return {"ok": False, "code": "WIFI_NOT_FOUND", "data": {"ssid": ssid},
+                "hint": "Run: aios net wifi scan, and use one of the names it lists."}
+    ssid = target["ssid"]
+    needs = target["security"] in ("psk", "wep") and not target["known"] and not target["connected"]
+    cmd = ["net", "wifi", "connect", ssid, *extra]
+    if not needs and not ask_yes(f'Connect to wifi "{ssid}"?'):
+        return {"ok": False, "code": "USER_DECLINED", "data": {}, "hint": "The user did not allow this command."}
+    for attempt in range(3):
+        password = None
+        if needs:
+            again = "Wrong password. " if attempt else ""
+            password = ask_secret(f'{again}Password for wifi "{ssid}" (Enter to cancel): ')
+            if not password:
+                return {"ok": False, "code": "USER_DECLINED", "data": {"ssid": ssid},
+                        "hint": "The user cancelled. Do not ask for the password in the chat."}
+        print(f"{DIM}[connecting to {ssid}...]{RESET}")
+        res = aios_json(cmd + (["--password", password] if password else []), timeout=120)
+        if res.get("code") == "WIFI_AUTH_FAILED" and needs:
+            continue
+        if res.get("code") == "WIFI_AUTH_FAILED" and not needs:
+            needs = True  # la guardada ya no vale: se pide la nueva
             continue
         return res
     return res
@@ -512,7 +602,8 @@ def record_until_enter():
 # --- Principal -------------------------------------------------------------------------
 
 HELP = ("Type a message. /voice to speak (or hold Super+Space), /look [question] to show "
-        "the screen,\n/speak on|off, /history, /resume [n], /clear starts over, /exit quits.")
+        "the screen,\n/speak on|off, /history, /resume [n], /clear starts over, /exit quits.\n"
+        "AI: /ai lists them, /ai <name> [model] switches, /pair adds one with its API key.")
 
 
 def main():
@@ -583,6 +674,21 @@ def main():
         if text == "/history":
             history()
             continue
+        if text == "/pair":
+            subprocess.run(["aios", "ai", "pair"])
+            sess.follow_active()
+            continue
+        if text == "/ai" or text.startswith("/ai "):
+            words = text.split()[1:]
+            if not words:
+                subprocess.run(["aios", "ai", "list"])
+                print(f"{DIM}/ai <name> [model] to switch, /ai models <name> to list models{RESET}")
+            elif words[0] == "models":
+                subprocess.run(["aios", "ai", "models", *words[1:2]])
+            else:
+                subprocess.run(["aios", "ai", "use", words[0], *(["--model", words[1]] if len(words) > 1 else [])])
+                sess.follow_active()
+            continue
         if text.startswith("/resume"):
             messages = resume(text[7:].strip(), messages)
             continue
@@ -610,6 +716,7 @@ def main():
                 print(f"Could not look at the screen: {res.get('data', {}).get('error')}")
             continue
         turn(messages, sess, text, spoken_lang=lang)
+        sess.follow_active()  # el agente puede haber cambiado de proveedor
     try:
         os.unlink(pidfile)
     except OSError:
