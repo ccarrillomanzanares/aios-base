@@ -30,6 +30,13 @@ else
     mmproj=$(pick '*mmproj*.gguf' no)
 fi
 
+# Contexto: "auto" = lo que cabe en la RAM de este equipo, con tope por
+# velocidad (16K en 8 GB, 32K con 12 GB o más); ver /usr/lib/aios/aios/gguf.py
+ctx=${CTX:-auto}
+if [ "$ctx" = auto ]; then
+    ctx=$(python3 -I /usr/lib/aios/aios/gguf.py auto "$model" "$mmproj") || ctx=16384
+fi
+
 threads=${THREADS:-auto}
 if [ "$threads" = auto ]; then
     threads=$(lscpu -p=Core,Socket 2>/dev/null | grep -v '^#' | sort -u | wc -l)
@@ -38,9 +45,9 @@ fi
 
 set -- -m "$model" \
     --host "${HOST:-127.0.0.1}" --port "${PORT:-8083}" \
-    -c "${CTX:-16384}" -t "$threads" -np 1 --jinja
+    -c "$ctx" -t "$threads" -np 1 --jinja
 [ -n "$mmproj" ] && set -- "$@" --mmproj "$mmproj"
 
-echo "aios-llama: $(basename "$model")${mmproj:+ + $(basename "$mmproj")}, ctx ${CTX:-16384}, $threads threads"
+echo "aios-llama: $(basename "$model")${mmproj:+ + $(basename "$mmproj")}, ctx $ctx, $threads threads"
 # shellcheck disable=SC2086  # EXTRA_ARGS se parte en palabras a propósito
 exec /usr/bin/llama-server "$@" $EXTRA_ARGS

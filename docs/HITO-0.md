@@ -31,6 +31,7 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | Chat: contexto y velocidad | `aios-chat` lee `n_ctx` de `/props`, olvida los turnos más antiguos por encima del 75 % (estimación calibrada con el `usage` del servidor) y, si llama-server aún rechaza por contexto, recorta y reintenta. tok/s de los `timings` del servidor. Probado contra el llama-server de la imagen en nativo con contexto 1024 |
 | `aios update code` | `check / apply / rollback` desde git (`/etc/aios/update.conf`, por defecto el repo de GitHub, rama main). Solo el overlay; avisa de lo que necesita imagen nueva. Fusión a tres bandas por fichero (base = commit de `/etc/aios/build-info`): respeta cambios locales y deja `.aios-new` si chocan. Copia de todo en `/var/lib/aios/updates/` y `rollback` exacto. `apply` pide token (`--confirm`) o un sí en el terminal. Necesita root. Probado con un remoto y una raíz falsas: rollback idéntico byte a byte |
 | `aios ai` y proveedores externos | `status / list / add / use / remove`. API compatible con OpenAI; clave en `Authorization: Bearer` o en otra cabecera (`--key-header X-API-Key`, como el servidor del VPS). Contexto: `/props` (llama.cpp), `/v1/models`, tabla de modelos o se pregunta (`--context`). `use` de un externo exige confirmación (los datos salen del equipo). `~/.config/aios/ai.json` en 0600. El chat usa el proveedor activo, vuelve al local si el remoto no responde y la barra muestra `AI REMOTE <nombre>` |
+| `CTX=auto` en `llama.conf` | `aios-llama` calcula el contexto con los metadatos GGUF (`aios/gguf.py`: contexto de entrenamiento y caché KV por token; en Qwen3.5 solo 8 de 32 capas tienen KV, 32 KiB/token) y la RAM: RAM − 1,5 GiB − pesos − 0,5 GiB, con tope por velocidad de CPU (16K con < 12 GiB, 32K con más). 8 GB → 16K (igual que antes); 12 GB o más → 32K; poca RAM → menos. Si falla, 16384 |
 | Arranque en el HP 15s | **Pendiente** |
 
 ## Decisiones ya tomadas
@@ -45,7 +46,6 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 
 ## Ideas apuntadas (sin hacer)
 
-- `CTX=auto` en `llama.conf`: calcular el contexto con la RAM libre, el modelo y su contexto de entrenamiento. Probar antes en hardware real (si se pasa, el modelo se queda sin memoria).
 
 ## Lecciones de este hito
 
