@@ -2,7 +2,7 @@
 import argparse
 import sys
 
-from . import net, ui
+from . import ai, net, ui, update
 from .result import fail
 
 
@@ -19,8 +19,10 @@ def main(argv=None):
     p = Parser(prog="aios", description="AIOS system command line")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     sub = p.add_subparsers(dest="space", required=True)
+    ai.register(sub)
     net.register(sub)
     ui.register(sub)
+    update.register(sub)
     argv = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in argv  # vale en cualquier posición: aios net status --json
     try:

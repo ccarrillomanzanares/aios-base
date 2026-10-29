@@ -14,6 +14,9 @@ import time
 import urllib.error
 import urllib.request
 
+sys.path.insert(0, os.environ.get("AIOS_LIB", "/usr/lib/aios"))
+from aios import ai as aiconf  # noqa: E402  (proveedor activo: local o externo)
+
 PORT = os.environ.get("AIOS_LLAMA_PORT", "8083")
 BASE = f"http://127.0.0.1:{PORT}"
 MAX_REPLY = 2048     # tokens de respuesta como máximo
@@ -98,22 +101,19 @@ def wait_for_server():
 
 
 class Context:
-    """Presupuesto de contexto: sin recorte, al llenarse los 16K llama-server
-    rechaza la petición y el chat solo daría ERROR hasta /clear."""
+    """Presupuesto de contexto: sin recorte, al llenarse el contexto el
+    servidor rechaza la petición y el chat solo daría ERROR hasta /clear.
+    El tamaño es el del proveedor (el local lo dice su /props)."""
 
-    def __init__(self):
-        self.n_ctx = 16384
+    def __init__(self, provider):
+        self.n_ctx = aiconf.context_of(provider)
         self.chars_per_token = 3.0  # se ajusta con lo que mide el servidor
-        try:
-            with urllib.request.urlopen(BASE + "/props", timeout=5) as r:
-                props = json.load(r)
-            self.n_ctx = int(props.get("default_generation_settings", {}).get("n_ctx")
-                             or props.get("n_ctx") or self.n_ctx)
-        except (OSError, ValueError, TypeError):
-            pass
+
+    def reply_tokens(self):
+        return min(MAX_REPLY, self.n_ctx // 4)  # en contextos pequeños, menos reserva
 
     def budget(self):
-        return min(int(self.n_ctx * HISTORY_SHARE), self.n_ctx - MAX_REPLY)
+        return min(int(self.n_ctx * HISTORY_SHARE), self.n_ctx - self.reply_tokens())
 
     def estimate(self, messages):
         chars = sum(len(m["content"]) for m in messages)
@@ -134,24 +134,28 @@ class Context:
         return dropped
 
 
-def chat(messages, ctx):
+def chat(messages, ctx, provider):
     """Envía la conversación y escribe la respuesta según llega (SSE)."""
-    body = json.dumps({
+    req_body = {
         "messages": messages,
         "stream": True,
         "stream_options": {"include_usage": True},
-        "max_tokens": MAX_REPLY,
-        # Sin razonamiento en el hito 0: en CPU cada token cuenta.
-        "chat_template_kwargs": {"enable_thinking": False},
-    }).encode()
+        "max_tokens": ctx.reply_tokens(),
+    }
+    if provider["local"]:
+        # Sin razonamiento en el hito 0: en CPU cada token cuenta. Solo al
+        # local: una API estricta rechaza parámetros que no conoce.
+        req_body["chat_template_kwargs"] = {"enable_thinking": False}
+    elif provider.get("model"):
+        req_body["model"] = provider["model"]
     req = urllib.request.Request(
-        BASE + "/v1/chat/completions", data=body,
-        headers={"Content-Type": "application/json"})
+        provider["url"].rstrip("/") + "/chat/completions",
+        data=json.dumps(req_body).encode(), headers=aiconf.headers(provider))
     reply = []
     t0 = time.monotonic()
     ntok = 0
     usage = timings = None
-    with urllib.request.urlopen(req, timeout=600) as r:
+    with urllib.request.urlopen(req, timeout=600, context=aiconf.ssl_context(provider)) as r:
         for raw in r:
             line = raw.decode("utf-8", "replace").strip()
             if not line.startswith("data:"):
@@ -201,13 +205,21 @@ def main():
         print()
         typewriter(random.choice(QUOTES).upper(), delay=0.05)
         print()
-        ready = wait_for_server()
+        provider = aiconf.provider()
+        if not provider["local"]:
+            ok, err = aiconf.reachable(provider)
+            if ok:
+                print(f'REMOTE AI: {provider["name"]} ({provider["url"]})')
+            else:
+                print(f'REMOTE AI {provider["name"]} NOT REACHABLE ({err}). USING LOCAL MODEL.')
+                provider = aiconf.provider("local")
+        ready = provider["local"] is False or wait_for_server()
     if not ready:
         return 1
     print("Type a message. /clear starts over, /exit quits.\n")
 
     messages = [{"role": "system", "content": SYSTEM}]
-    ctx = Context()
+    ctx = Context(provider)
     while True:
         try:
             text = input("> ").strip()
@@ -228,7 +240,7 @@ def main():
             if forgot:
                 print("\033[2m[older messages forgotten to make room]\033[0m")
             try:
-                messages.append({"role": "assistant", "content": chat(messages, ctx)})
+                messages.append({"role": "assistant", "content": chat(messages, ctx, provider)})
             except KeyboardInterrupt:
                 print("\n[interrupted]")
                 messages.pop()

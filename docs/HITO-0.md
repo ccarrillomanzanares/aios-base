@@ -29,6 +29,8 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | CLI `aios` (adelanto del hito 1) | Paquete Python en `/usr/lib/aios/aios`, contrato JSON (`--json` en cualquier posición; errores de uso e internos también en JSON). `aios net status`, `aios net wifi scan/connect/disconnect` (iwd por D-Bus con `busctl --json`; `iwctl` solo para entregar la contraseña) y `aios ui brightness [up/down/N]` (logind `SetBrightness`, mínimo 5 %) |
 | Barra y teclas del portátil | `aios-status` en Python, un solo proceso: modelo, red (SSID o ETH), batería, RAM y hora. Teclas de brillo en sway |
 | Chat: contexto y velocidad | `aios-chat` lee `n_ctx` de `/props`, olvida los turnos más antiguos por encima del 75 % (estimación calibrada con el `usage` del servidor) y, si llama-server aún rechaza por contexto, recorta y reintenta. tok/s de los `timings` del servidor. Probado contra el llama-server de la imagen en nativo con contexto 1024 |
+| `aios update code` | `check / apply / rollback` desde git (`/etc/aios/update.conf`, por defecto el repo de GitHub, rama main). Solo el overlay; avisa de lo que necesita imagen nueva. Fusión a tres bandas por fichero (base = commit de `/etc/aios/build-info`): respeta cambios locales y deja `.aios-new` si chocan. Copia de todo en `/var/lib/aios/updates/` y `rollback` exacto. `apply` pide token (`--confirm`) o un sí en el terminal. Necesita root. Probado con un remoto y una raíz falsas: rollback idéntico byte a byte |
+| `aios ai` y proveedores externos | `status / list / add / use / remove`. API compatible con OpenAI; clave en `Authorization: Bearer` o en otra cabecera (`--key-header X-API-Key`, como el servidor del VPS). Contexto: `/props` (llama.cpp), `/v1/models`, tabla de modelos o se pregunta (`--context`). `use` de un externo exige confirmación (los datos salen del equipo). `~/.config/aios/ai.json` en 0600. El chat usa el proveedor activo, vuelve al local si el remoto no responde y la barra muestra `AI REMOTE <nombre>` |
 | Arranque en el HP 15s | **Pendiente** |
 
 ## Decisiones ya tomadas
@@ -43,10 +45,7 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 
 ## Ideas apuntadas (sin hacer)
 
-- Actualizar el código de AIOS desde git en el propio equipo, sin regrabar el USB (propuesta del usuario).
 - `CTX=auto` en `llama.conf`: calcular el contexto con la RAM libre, el modelo y su contexto de entrenamiento. Probar antes en hardware real (si se pasa, el modelo se queda sin memoria).
-- Proveedores externos (`ask_server`): el contexto va en la configuración del proveedor; si no se conoce, tabla de modelos o pregunta al usuario; como red, el error de contexto excedido.
-- `systemd-backlight` para recordar el brillo entre arranques (cambia la configuración de systemd: compilación desde cero).
 
 ## Lecciones de este hito
 

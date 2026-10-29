@@ -12,14 +12,18 @@ import sys
 import time
 import urllib.request
 
-sys.path.insert(0, "/usr/lib/aios")
-from aios import net  # noqa: E402
+sys.path.insert(0, os.environ.get("AIOS_LIB", "/usr/lib/aios"))
+from aios import ai as aiconf, net  # noqa: E402
 
 SYSFS = os.environ.get("AIOS_SYSFS", "/sys")
 LLAMA = "http://127.0.0.1:{}/health".format(os.environ.get("AIOS_LLAMA_PORT", "8083"))
 
 
 def ai():
+    p = aiconf.provider()
+    if not p["local"]:  # que se vea que las conversaciones salen del equipo
+        ok, _ = aiconf.reachable(p)
+        return f'AI REMOTE {p["name"].upper()}' + ("" if ok else " DOWN")
     try:
         with urllib.request.urlopen(LLAMA, timeout=1) as r:
             if r.status == 200:
