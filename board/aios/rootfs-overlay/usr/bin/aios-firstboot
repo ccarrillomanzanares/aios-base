@@ -118,8 +118,10 @@ def set_timezone():
 
 
 def sudo(args, password, stdin_rest=""):
-    """sudo -S: la primera línea de la entrada es la contraseña de sudo."""
-    p = subprocess.run(["sudo", "-S", "-p", "", *args], input=f"{password}\n{stdin_rest}",
+    """sudo -S: la primera línea de la entrada es la contraseña de sudo. Con -k
+    la pide siempre: si sudo la tuviera en caché no leería esa línea y le
+    llegaría a la orden (a chpasswd, como si fuera un usuario)."""
+    p = subprocess.run(["sudo", "-k", "-S", "-p", "", *args], input=f"{password}\n{stdin_rest}",
                        capture_output=True, text=True, timeout=60)
     return p.returncode == 0, (p.stderr or p.stdout).strip()
 

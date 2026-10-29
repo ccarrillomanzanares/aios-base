@@ -69,6 +69,8 @@ out=$(timeout 900 /opt/whisper/bin/whisper-cli -m /usr/share/aios/models/whisper
 ls /lib/firmware/intel/sof/sof-icl.ri >/dev/null 2>&1 && ls /usr/share/alsa/ucm2 >/dev/null 2>&1 && pass audio-sof-ucm || fail audio-sof-ucm "SOF or UCM missing"
 
 # --- Pantalla y diagnóstico -----------------------------------------------------------
+# La VM es lenta: swayidle ya habrá apagado la pantalla y grim no tendría qué copiar
+SWAYSOCK=$(ls /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -1) swaymsg 'output * power on' >/dev/null
 f=$(aios-screenshot) && [ -s "$f" ] && pass screenshot || fail screenshot "$f"
 aios-diag --local > /tmp/diag.out 2>&1
 t=$(sed -n 's/.*saved \(\/tmp\/[^ ]*\.tar\.gz\).*/\1/p' /tmp/diag.out)
@@ -98,7 +100,7 @@ if [ "${n:-0}" -ge 2 ]; then
 fi
 
 # --- Bluetooth (la VM no tiene adaptador: debe decirlo, no fallar) ---------------------
-[ "$(systemctl is-active bluetooth)" = active ] && pass bt-service || fail bt-service "$(systemctl is-active bluetooth)"
+{ [ "$(systemctl is-active bluetooth)" = active ] || [ ! -d /sys/class/bluetooth ]; } && pass bt-service || fail bt-service "$(systemctl is-active bluetooth)"
 c=$(aios bt status --json | jcode); { [ "$c" = OK ] || [ "$c" = BT_NO_ADAPTER ]; } && pass bt-status || fail bt-status "$c"
 
 # --- Autoprueba de hardware -------------------------------------------------------------
@@ -109,7 +111,8 @@ r = json.loads(open("/tmp/selftest.json").read().strip().splitlines()[-1])
 names = {t["test"] for t in r["data"]["results"]}
 assert {"cpu", "gpu", "sound", "wifi", "bluetooth", "voice", "model"} <= names, names
 PY
-locale -a 2>/dev/null | grep -qi "fr_FR.utf8" && pass locales || fail locales "fr_FR missing"
+# sin el programa locale en la imagen: se prueba con glibc directamente
+python3 -c 'import locale; locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")' 2>/dev/null && pass locales || fail locales "fr_FR missing"
 
 # --- Proveedor externo ------------------------------------------------------------------
 [ -n "$MOCKPORT" ] && {

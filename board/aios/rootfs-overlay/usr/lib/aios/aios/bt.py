@@ -6,6 +6,7 @@ los auriculares lo recoge PipeWire sin hacer nada más. Emparejar sin agente
 usa el modo "Just Works" de BlueZ, el de casi todos los auriculares y
 altavoces; los teclados que piden un PIN aún no están cubiertos.
 """
+import os
 import time
 
 from .net import busctl
@@ -48,7 +49,8 @@ def public(d):
 
 
 def no_bt(objs):
-    if objs is None:
+    # bluetooth.service solo arranca si existe /sys/class/bluetooth
+    if objs is None and os.path.isdir("/sys/class/bluetooth"):
         return fail("BT_NO_SERVICE", "Run: systemctl status bluetooth",
                     text="The Bluetooth service is not running.")
     return fail("BT_NO_ADAPTER", "This computer has no Bluetooth (or it is blocked).",
