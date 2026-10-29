@@ -54,18 +54,50 @@ ALERTED = {}  # batería -> último umbral avisado (10, 5)
 
 
 def battery_alert(name, cap, st):
-    """Aviso de batería baja: notificación y en voz alta, una vez por umbral."""
+    """Aviso de batería baja: notificación y en voz alta, una vez por umbral. Al
+    3 % sin cargador, se suspende: mejor que apagarse de golpe a mitad de algo."""
     if st == "Charging" or cap > 15:
         ALERTED.pop(name, None)
+        return
+    lang = os.environ.get("LANG", "en")[:2]
+    if cap <= 3 and st == "Discharging" and ALERTED.get(name, 100) > 3:
+        ALERTED[name] = 3
+        notify.send(f"Battery empty: {cap}%", "Suspending now. Plug in the charger.", "critical")
+        voice.speak("Batería agotada. Suspendo el equipo." if lang == "es" else
+                    "Battery empty. Suspending.", lang)
+        time.sleep(5)
+        subprocess.run(["systemctl", "suspend"], capture_output=True)
         return
     for level, urgency in ((5, "critical"), (10, "normal")):
         if cap <= level and ALERTED.get(name, 100) > level:
             ALERTED[name] = level
             notify.send(f"Battery low: {cap}%", "Plug in the charger.", urgency)
-            lang = os.environ.get("LANG", "en")[:2]
             voice.speak(f"Batería baja: {cap} por ciento." if lang == "es" else
                         f"Battery low: {cap} percent.", lang)
             break
+
+
+def time_left(bat, st):
+    """Tiempo hasta vaciarse (o llenarse) como 2:10, o "" si el firmware no lo dice."""
+    def num(name):
+        try:
+            return int(open(os.path.join(bat, name)).read())
+        except (OSError, ValueError):
+            return None
+    now, rate, full = num("energy_now"), num("power_now"), num("energy_full")
+    if now is None or not rate:  # algunas baterías cuentan en carga (µAh) y corriente (µA)
+        now, rate, full = num("charge_now"), num("current_now"), num("charge_full")
+    if now is None or not rate or rate < 0:
+        return ""
+    if st == "Discharging":
+        hours = now / rate
+    elif st == "Charging" and full:
+        hours = max(0, full - now) / rate
+    else:
+        return ""
+    if hours > 24:
+        return ""
+    return f" {int(hours)}:{int(hours * 60) % 60:02d}"
 
 
 def battery():
@@ -81,7 +113,7 @@ def battery():
             battery_alert(bat, int(cap), st)
         except ValueError:
             pass
-        out.append(f"BAT {cap}%{mark}")
+        out.append(f"BAT {cap}%{mark}{time_left(bat, st)}")
     return " ".join(out)
 
 

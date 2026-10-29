@@ -22,6 +22,9 @@ NoNewPrivileges=yes
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 # El agente y la interfaz tienen prioridad sobre la inferencia.
 Nice=5
+# Si se acaba la memoria, que el kernel mate al modelo (se reinicia solo) y no
+# a la sesión gráfica o al terminal con el trabajo del usuario
+OOMScoreAdjust=500
 Restart=on-failure
 RestartSec=5
 

@@ -63,7 +63,8 @@ TOOLS = [
             "e.g. 'ui brightness 80' for 80% | ui brightness up|down: one small step\n"
             "- ui display list | ui display extend | ui display mirror\n"
             "- bt status | bt scan | bt connect <name>\n"
-            "- sys selftest: test the hardware | sys thermal: CPU temperature and throttling\n"
+            "- sys selftest: test the hardware | sys thermal: CPU temperature and throttling | "
+            "sys power: on battery or plugged in, power profile\n"
             "- ai status | ai list: providers | ai models [provider]: models it offers\n"
             "- ai use <provider|local> [--model <id>]: switch AI (to add one, tell the user to type /pair)\n"
             "- remind add <when> <text>: reminder/alarm, spoken and on screen; when = 10m, 2h, "
@@ -380,8 +381,9 @@ def is_read_only(args):
     words = [a for a in args if not a.startswith("-")]
     if any(tuple(words[:len(r)]) == r for r in READ_ONLY):
         return True
-    # Sin valor, volumen y brillo solo consultan
-    return words[:2] in (["audio", "volume"], ["ui", "brightness"]) and len(words) == 2
+    # Sin valor, volumen y brillo solo consultan; 'sys power' a secas, igual
+    # (por prefijo, 'sys power apply' pasaría sin preguntar)
+    return words in (["audio", "volume"], ["ui", "brightness"], ["sys", "power"])
 
 
 def run_aios(command):
