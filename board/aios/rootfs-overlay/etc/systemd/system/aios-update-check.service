@@ -1,0 +1,12 @@
+[Unit]
+Description=AIOS update check (tells the desktop, installs nothing)
+Documentation=file:/etc/aios/update.conf
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/aios update code notify
+# Que no compita con el modelo ni con la sesión
+Nice=10
+IOSchedulingClass=idle

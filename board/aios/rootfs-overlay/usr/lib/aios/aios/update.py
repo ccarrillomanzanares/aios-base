@@ -268,6 +268,44 @@ def code_check(args):
                   text="\n".join([f"Source: {branch}"] + summary(new, steps, image, commits, base_ok)))
 
 
+NOTIFIED = os.path.join(STATE, "update-notified")
+
+
+def code_notify(args):
+    """Para aios-update-check.timer: comprueba y, si hay algo nuevo que aún no
+    se ha avisado, lo dice en el escritorio. Una vez por versión."""
+    if read_kv(CONF).get("AUTO_CHECK", "yes") != "yes":
+        return Result(True, "UPDATE_CHECK_DISABLED", text="Automatic update check disabled in " + CONF)
+    res = code_check(args)
+    latest = (res.data or {}).get("latest")
+    if res.code not in ("UPDATE_AVAILABLE", "UPDATE_NONE") or not latest:
+        return res
+    image = bool((res.data or {}).get("needs_image"))
+    if res.code == "UPDATE_NONE" and not image:
+        return res
+    try:
+        with open(NOTIFIED) as f:
+            if f.read().strip() == latest:
+                return res  # ya avisado de esta versión
+    except OSError:
+        pass
+    from . import notify
+    if res.code == "UPDATE_AVAILABLE":
+        n = sum(len(v) for k, v in res.data["changes"].items() if k != "kept")
+        sent = notify.send_to_user(
+            "AIOS update available",
+            f"{n} file(s) to update. Ask the assistant, or run in a terminal: sudo aios update code apply")
+    else:
+        sent = notify.send_to_user("New AIOS image available",
+                                   "Some changes need a new image: download it from ccmai.org/aios")
+    if sent:  # sin sesión gráfica no cuenta como avisado: se repite la próxima vez
+        os.makedirs(STATE, exist_ok=True)
+        with open(NOTIFIED, "w") as f:
+            f.write(latest + "\n")
+    res.data["notified"] = sent
+    return res
+
+
 def code_apply(args):
     r = need_root("apply")
     if r:
@@ -391,3 +429,5 @@ def register(sub):
     a.add_argument("--confirm", metavar="TOKEN")
     a.set_defaults(func=code_apply)
     cs.add_parser("rollback", help="undo the last update").set_defaults(func=code_rollback)
+    cs.add_parser("notify", help="check and tell the desktop once per new version (daily timer)"
+                  ).set_defaults(func=code_notify)

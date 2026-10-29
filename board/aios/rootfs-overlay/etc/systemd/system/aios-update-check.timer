@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily AIOS update check
+
+[Timer]
+# 15 min tras arrancar (que haya red y el modelo ya esté cargado) y luego a diario;
+# si el portátil estaba apagado a esa hora, al encenderlo (Persistent)
+OnBootSec=15min
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=30min
+
+[Install]
+WantedBy=timers.target

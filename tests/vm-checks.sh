@@ -168,9 +168,21 @@ python3 -c 'import locale; locale.setlocale(locale.LC_ALL, "fr_FR.UTF-8")' 2>/de
     { [ "$code" = UPDATE_NO_RELEASE ] || [ "$code" = UPDATE_AVAILABLE ]; } && pass update-release-channel || fail update-release-channel "$code"
     sed -i 's/CHANNEL=release/CHANNEL=main/' /tmp/u.conf; S cp /tmp/u.conf /etc/aios/update.conf
     [ "$(S aios update code check --json | jcode)" = UPDATE_AVAILABLE ] && pass update-check || fail update-check "no update"
+    # Aviso diario: notifica una vez por versión (la segunda vez, nada)
+    n1=$(S aios update code notify --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip().splitlines()[-1])["data"].get("notified"))')
+    n2=$(S aios update code notify --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip().splitlines()[-1])["data"].get("notified"))')
+    [ "$n1" = True ] && [ "$n2" = None ] && pass update-notify-once || fail update-notify-once "first=$n1 second=$n2"
+    [ "$(systemctl is-enabled aios-update-check.timer)" = enabled ] && pass update-timer || fail update-timer "$(systemctl is-enabled aios-update-check.timer)"
     tok=$(S aios update code apply --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip().splitlines()[-1]).get("confirm"))')
     S aios update code apply --confirm "$tok" >/dev/null && [ "$(aios-test-update 2>/dev/null)" = "update OK" ] && pass update-apply || fail update-apply "?"
     S aios update code rollback >/dev/null && ! command -v aios-test-update >/dev/null && pass update-rollback || fail update-rollback "?"
 }
+# --- Temperatura y energía -------------------------------------------------------------
+c=$(aios sys thermal --json | jcode); { [ "$c" = OK ] || [ "$c" = THERMAL_NO_SENSOR ]; } && pass sys-thermal || fail sys-thermal "$c"
+aios sys power --json | grep -q '"on_ac": true' && pass power-on-ac || fail power-on-ac "$(aios sys power 2>&1)"
+[ "$(systemctl show -p Result --value aios-power.service)" = success ] && pass power-service || \
+    fail power-service "$(systemctl status aios-power.service --no-pager 2>&1 | tail -3 | tr '\n' ' ')"
+[ -z "$(S aios sys power apply --profile battery --json | grep -v '"ok": true')" ] && pass power-battery-apply || fail power-battery-apply "?"
+S aios sys power apply --profile ac >/dev/null
 pkill -CONT -x swayidle
 echo "CHECKS DONE"

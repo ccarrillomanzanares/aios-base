@@ -10,6 +10,9 @@ enable aios-firewall.service
 # Perfil de energía: al arrancar y al enchufar o desenchufar (regla de udev)
 enable aios-power.service
 
+# Comprobación diaria de actualizaciones: avisa, nunca instala sola
+enable aios-update-check.timer
+
 # Sonido: PipeWire y WirePlumber corren como servicios de usuario de aios
 # (post-build.sh). Los de sistema abrían la tarjeta antes y el de usuario se
 # quedaba sin micrófono (HP 15s, 29 oct).
