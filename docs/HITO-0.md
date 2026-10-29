@@ -65,6 +65,24 @@ Sesión de la noche: primeros arranques en el HP 15s (2019) y en el HP 15-ba (an
   - Probar primero en QEMU con un disco virtual extra (BIOS y UEFI), añadirlo a `make test`, y solo después al portátil.
 - **Sin push** a GitHub (sigue en `148c7e6`); no hacer push sin que lo pida el usuario.
 
+## Noche del 29 al 30 oct: mejoras en la rama `mejoras-termica-bateria-updates`
+
+Hechas mientras el usuario dormía, a petición suya, **fuera de la imagen publicada** esa noche (la de `d89c73c`). Cada una con pruebas por partes y comprobaciones nuevas en `make test`; la imagen con todo se compila y prueba después de publicar la otra.
+
+| Mejora | Qué hace |
+|---|---|
+| Temperatura (6) | `aios sys thermal` (coretemp/k10temp/zonas, contadores de estrangulamiento de Intel, frecuencia); autoprueba; barra `CPU 71°C` / `HOT` / `THROTTLED`, aviso a 95 °C; consulta del agente |
+| Perfil de batería (7) | `aios-power.service` + regla udev: con batería, EPP `balance_power`, brillo ≤ 60 % (vuelve al enchufar si no se tocó) y modelo con la mitad de hilos (reinicia llama-server solo si está ocioso; si no, reintenta al minuto). `/etc/aios/power.conf`, `aios sys power` |
+| Aviso de actualizaciones (8) | `aios update code notify` + `aios-update-check.timer` diario: avisa una vez por versión, nunca instala; `AUTO_CHECK=no` |
+| Recordatorios (4) | `aios remind add/list/cancel`, temporizadores de usuario con hora absoluta, aviso en pantalla y voz, `restore` al entrar en sway (avisa de los perdidos); el agente los crea sin confirmación |
+| Portapapeles (5) y dictado (3) | Paquetes propios `wl-clipboard` 2.3.0 y `wtype` 0.5. Herramienta `clipboard` del agente (con proveedor remoto pregunta antes de enviar); dictado con Super+Ctrl+Espacio (`aios-voice dictate`) |
+| Swap en RAM | `aios-zram.service`: zram de la mitad de la RAM (≤ 8 GiB), swappiness 150 |
+| Prompt fijo guardado | `aios-chat` restaura de `/var/cache/aios-llama/slots` el estado de sistema + herramientas (o lo procesa y guarda). Medido: restaurar 10 ms; primer mensaje 17 tokens en vez de 902 |
+| Batería y memoria | Tiempo restante en la barra; suspensión al 3 % sin cargador; `OOMScoreAdjust=500` en el modelo |
+| Diag y pruebas | Diag con swap/zram, temperatura, energía y recordatorios. QEMU: emparejamiento de punta a punta y wifi del agente con contraseña sin eco; native: llama-server como `aios-llama` y caché del prompt |
+
+Pendiente de probar en hardware: todo lo anterior. Dudas para el usuario: si quiere la suspensión al 3 % (o apagado), y el atajo del dictado (Super+Ctrl+Espacio; Super+Mayús+Espacio ya era «ventana flotante»).
+
 ## Traspaso anterior (29 oct, fin de la sesión larga)
 
 Para retomar en una sesión nueva: leer esta sección, la tabla de estado y `git log`.
