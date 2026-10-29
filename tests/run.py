@@ -321,7 +321,8 @@ def vm():
         kvm = ["-enable-kvm", "-cpu", "host"] if os.access("/dev/kvm", os.W_OK) else []
         qemu = subprocess.Popen(["qemu-system-x86_64", *kvm, "-m", "6G", "-smp", "4",
                                  "-drive", f"file={IMAGE},format=raw,if=virtio,snapshot=on",
-                                 "-vga", "virtio", "-display", "none",
+                                 # dos pantallas: extender, duplicar, apagar una
+                                 "-device", "virtio-vga,max_outputs=2", "-display", "none",
                                  "-audiodev", f"wav,id=snd0,path={wav}",
                                  "-device", "intel-hda", "-device", "hda-duplex,audiodev=snd0",
                                  "-monitor", f"unix:{mon},server,nowait",

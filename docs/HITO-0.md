@@ -49,6 +49,18 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | Autoprueba de hardware | `aios sys selftest` (y dentro de `aios-diag`): CPU, GPU, pantallas, brillo, batería con desgaste, wifi, Bluetooth, sonido (tono de 1 kHz por el altavoz buscado en lo que graba el micrófono, Goertzel), modelo y voz (espeak → whisper, con tiempo) |
 | Arranque en el HP 15s | **Pendiente** |
 
+## Traspaso (29 oct, fin de la sesión larga)
+
+Para retomar en una sesión nueva: leer esta sección, la tabla de estado y `git log`.
+
+- **Hecho y probado** (tabla de arriba). Pruebas: `make test` (fase native: binarios de la imagen en el VPS; fase vm: QEMU). Última pasada antes de la compilación final: native 8/8, vm 40/43, y los 3 fallos (faltaba `chpasswd` en BusyBox; comprobaciones de root) corregidos en el commit siguiente.
+- **En curso al cerrar**: compilación final desde cero (lanzada ~15:50 del 29 oct, ~60 min) con Bluetooth, swaylock/swayidle/mako/wl-mirror y BusyBox con `chpasswd`. Log: `build/full-build.log`; ha terminado bien si acaba en «=== AIOS: imagen generada ===» y `build/output/target/usr/bin/swaylock` existe. Si no, mirar el error al final del log.
+- **Siguiente, en este orden**: 1) comprobar que la compilación terminó; 2) `make test` (~40 min sin KVM; resultados en `build/test-results/`, resumen al final de la salida) y corregir lo que falle; las comprobaciones nuevas (escritorio, dos pantallas virtuales, Bluetooth sin adaptador, autoprueba, locales) aún no se han ejecutado nunca; 3) commit; 4) proponer al usuario las mejoras de abajo.
+- **Sin publicar**: commits locales sin push (`git log origin/main..main`; GitHub va en `148c7e6`); el `aios.img.xz` publicado es del 28 oct. No hacer push ni regenerar/publicar el `.xz` sin que lo pida el usuario. `aios update code` en el HP no verá nada hasta que haya push y una versión firmada (`scripts/release.sh vX.Y.Z`, clave `~/.ssh/aios-release` en el VPS).
+- **VPS**: receptor de `aios-diag` activo (`aios-diag-receiver`, Apache `/aios-diag/` en ccmai.org; paquetes en `~/aios-diag/`). En el VPS corre además otro llama-server con Qwen3.6-35B (Docker, `llama-qwen`, tras Caddy en :8443 con `X-API-Key`): no usar su clave sin permiso.
+- **Siguiente paso del hito 0**: arrancar en el HP 15s, ejecutar `aios-diag` (sube autoprueba, capturas y logs) y revisar aquí lo que llegue.
+- **Pendiente de decidir con el usuario**: las «Mejoras propuestas» de abajo (las pidió para revisarlas).
+
 ## Decisiones ya tomadas
 
 - Buildroot **2026.08.1**, toolchain glibc, CPU **x86-64 base** (corre en cualquier PC de 64 bits).
@@ -64,6 +76,21 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 
 - Velocidad del modelo (pospuesto): guardar en disco la caché del prompt fijo (sistema + herramientas) y probar decodificación especulativa con un modelo de borrador pequeño. Medir en el HP.
 - Instalador a disco con `/home` en partición propia (hito 4): el USB es solo para pruebas.
+
+## Mejoras propuestas (pendientes de que el usuario las revise)
+
+1. Instalador a disco (hito 4): cifrado LUKS, `/home` en partición propia, A/B con RAUC. Es el destino real; el USB es solo para pruebas.
+2. Cortafuegos `nftables` por defecto que bloquee las conexiones entrantes (refuerzo de lo hecho con SSH y LLMNR).
+3. Dictado en cualquier aplicación: atajo que transcribe y escribe el texto en la ventana activa (necesita `wtype`).
+4. Recordatorios y alarmas por chat o voz: herramienta del agente con temporizadores de systemd, notificación y aviso hablado.
+5. Portapapeles (`wl-clipboard`) como herramienta del agente: «resume/traduce lo que he copiado».
+6. Temperatura y estrangulamiento térmico en la barra y en la autoprueba (el modelo calienta el portátil).
+7. Perfil de batería automático al desenchufar: gobernador de CPU, menos hilos del modelo, brillo.
+8. Comprobación periódica de actualizaciones (temporizador) con notificación.
+9. Cámara para la visión (`/look camera`).
+10. Más herramientas del agente (hito 1): leer ficheros, shell con política de seguridad, documentación (`aios doc`, RAG).
+11. Aplicaciones básicas: navegador (extensión, hito 4), visor de imágenes y PDF, gestor de ficheros.
+12. Palabra de activación manos libres («Oye AIOS»), opcional: coste de CPU a medir.
 
 ## Lecciones de este hito
 

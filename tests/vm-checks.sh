@@ -75,6 +75,42 @@ t=$(sed -n 's/.*saved \(\/tmp\/[^ ]*\.tar\.gz\).*/\1/p' /tmp/diag.out)
 [ -n "$t" ] && gzip -dc "$t" | tar -tf - | grep -q 'screenshots/aios-' && pass diag-screenshots || fail diag-screenshots "$(tail -2 /tmp/diag.out)"
 gzip -dc "$t" | tar -tf - | grep -q 'audio.txt' && pass diag-audio || fail diag-audio "no audio.txt"
 
+# --- Escritorio: bloqueo, notificaciones, pantallas ------------------------------------
+export WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-1}
+for p in swayidle mako; do pgrep -x $p >/dev/null && pass "desktop-$p" || fail "desktop-$p" "not running"; done
+command -v swaylock >/dev/null && pass desktop-swaylock || fail desktop-swaylock "missing"
+python3 -c "import sys; sys.path.insert(0,'/usr/lib/aios'); from aios import notify; sys.exit(0 if notify.send('AIOS test', 'notification') else 1)" \
+    && pass notify-send || fail notify-send "mako did not take it"
+n=$(aios ui display list --json | python3 -c 'import json,sys; print(len(json.loads(sys.stdin.read().strip().splitlines()[-1])["data"]["displays"]))')
+[ "${n:-0}" -ge 1 ] && pass display-list || fail display-list "no displays"
+if [ "${n:-0}" -ge 2 ]; then
+    check display-extend aios ui display extend right
+    aios ui display list --json | grep -q '"position": \[[1-9]' && pass display-extended || fail display-extended "second display not placed to the right"
+    check display-mirror aios ui display mirror
+    sleep 3; pgrep -x wl-mirror >/dev/null && pass display-mirror-running || fail display-mirror-running "wl-mirror not running"
+    check display-unmirror aios ui display extend
+    second=$(aios ui display list --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip().splitlines()[-1])["data"]["displays"][1]["name"])')
+    check display-off aios ui display off "$second"
+    first=$(aios ui display list --json | python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip().splitlines()[-1])["data"]["displays"][0]["name"])')
+    [ "$(aios ui display off "$first" --json | jcode)" = UI_LAST_DISPLAY ] && pass display-keeps-last || fail display-keeps-last "turned off the last display"
+    check display-on aios ui display on "$second"
+    ls ~/.config/sway/config.d/50-aios-displays.conf >/dev/null && pass display-remembered || fail display-remembered "no config saved"
+fi
+
+# --- Bluetooth (la VM no tiene adaptador: debe decirlo, no fallar) ---------------------
+[ "$(systemctl is-active bluetooth)" = active ] && pass bt-service || fail bt-service "$(systemctl is-active bluetooth)"
+c=$(aios bt status --json | jcode); { [ "$c" = OK ] || [ "$c" = BT_NO_ADAPTER ]; } && pass bt-status || fail bt-status "$c"
+
+# --- Autoprueba de hardware -------------------------------------------------------------
+aios sys selftest --json > /tmp/selftest.json 2>&1
+python3 - <<'PY' && pass selftest-runs || fail selftest-runs "$(tail -c 200 /tmp/selftest.json)"
+import json
+r = json.loads(open("/tmp/selftest.json").read().strip().splitlines()[-1])
+names = {t["test"] for t in r["data"]["results"]}
+assert {"cpu", "gpu", "sound", "wifi", "bluetooth", "voice", "model"} <= names, names
+PY
+locale -a 2>/dev/null | grep -qi "fr_FR.utf8" && pass locales || fail locales "fr_FR missing"
+
 # --- Proveedor externo ------------------------------------------------------------------
 [ -n "$MOCKPORT" ] && {
     check ai-add aios ai add mock --url "http://$HOST:$MOCKPORT/v1" --api-key secreto123 --key-header X-API-Key
