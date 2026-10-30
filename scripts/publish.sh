@@ -31,7 +31,7 @@ web() {
     [ "$1" = preview ] && { echo "Borrador en $out"; return 0; }
     prev="$ROOT/build/web-prev-$(date +%Y%m%d-%H%M%S)"
     mkdir -p "$prev/releases"
-    for page in index.html changelog.html changelog-lfs.html releases/index.html; do
+    for page in index.html about.html changelog.html changelog-lfs.html releases/index.html; do
         [ -f "$WEB/$page" ] && cp "$WEB/$page" "$prev/$page"
         sudo install -m 0644 "$out/$page" "$WEB/$page"
     done

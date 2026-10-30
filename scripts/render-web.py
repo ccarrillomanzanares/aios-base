@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PAGES = ["index.html", "changelog.html", "changelog-lfs.html", "releases/index.html"]
+PAGES = ["index.html", "about.html", "changelog.html", "changelog-lfs.html", "releases/index.html"]
 
 
 def info(path):

@@ -37,7 +37,7 @@ h1{color:var(--bright);letter-spacing:.18em;text-shadow:0 0 14px rgba(0,255,0,.4
   font-size:.85rem;line-height:1.2;margin:.35rem 0;
 }
 .btn:hover{background:#004400;box-shadow:0 0 14px rgba(0,255,0,.25)}
-.btn small{display:block;color:var(--dim);font-size:.72rem;margin-top:.25rem;letter-spacing:0}
+.btn small{display:block;color:#22bb22;font-size:.72rem;margin-top:.25rem;letter-spacing:0}
 .partners{display:flex;align-items:center;gap:2.2rem;justify-content:center;flex-wrap:wrap}
 .partners a{color:var(--bright);text-decoration:none;display:inline-flex;align-items:center}
 .partners img{height:30px;width:auto;opacity:.9}
@@ -132,17 +132,17 @@ h1{color:var(--bright);letter-spacing:.18em;text-shadow:0 0 14px rgba(0,255,0,.4
 .term-foot a{color:var(--dim);text-decoration:none}
 .term-foot a:hover{color:var(--bright)}
 
-/* ---------- v0.25: contenido nuevo ---------- */
-.v1 .screen{height:auto;max-height:none}
-.v1 .term-body{overflow:visible}
-body{padding:1.2rem 0}
-.what{list-style:none;max-width:640px;margin:.9rem auto 0;text-align:left;font-size:.78rem;line-height:1.55}
-.what li{padding-left:1.1rem;position:relative;margin:.12rem 0;color:#22cc22}
-.what li::before{content:"›";position:absolute;left:0;color:var(--dim)}
-.reqs{color:var(--dim);font-size:.72rem;margin:.9rem auto 0;max-width:640px;line-height:1.5}
-.warn{color:#ccff33;font-size:.72rem;margin:.7rem auto 0;max-width:640px;border:1px solid #556600;border-radius:4px;padding:.4rem .7rem;background:#0b0f00}
-.howto{display:inline-block;color:var(--bright);text-decoration:none;font-size:.8rem;margin-top:.5rem}
-.howto:hover,.changelog-link:hover{text-shadow:0 0 8px rgba(0,255,0,.6)}
+/* ---------- v0.25: portada en una pantalla ---------- */
+.v1 .term-body{overflow-y:auto}  /* pantallas muy bajas: se desplaza dentro, no recorta */
+.v1 .brand .hex svg{width:84px}
+.v1 h1{margin:.3rem 0 .15rem}
+.dl-col{width:min(370px,100%);margin:0;padding:.8rem 1rem .5rem}
+.dl-col .btn{margin-bottom:.4rem}
+.oneliner{color:#22cc22;font-size:.82rem;margin:.75rem auto 0;max-width:640px;line-height:1.5}
+.links{margin-top:.55rem;font-size:.8rem}
+.links a{color:var(--bright);text-decoration:none;margin:0 .6rem}
+.links a:hover{text-shadow:0 0 8px rgba(0,255,0,.6)}
+.warn{color:#ccff33;font-size:.72rem;margin:.65rem auto .85rem;max-width:640px;border:1px solid #556600;border-radius:4px;padding:.35rem .7rem;background:#0b0f00}
 .tech{color:var(--bright);border:1px solid var(--line);border-radius:4px;padding:.3rem .6rem;font-size:.75rem;letter-spacing:.05em}
 </style>
 </head>
@@ -167,18 +167,10 @@ body{padding:1.2rem 0}
 <a class="btn" href="releases/aios.ova">Download the virtual machine<small>aios.ova · @OVA_SIZE@ · @DATE@</small></a>
 </div>
 </div>
-<a class="howto" href="releases/">How to install, checksums &rarr;</a>
+<p class="oneliner">Your own AI assistant, running on your laptop &mdash; even without Internet. Talk to it, and it runs the system for you.</p>
+<div class="links"><a href="about.html">What AIOS does &amp; requirements &rarr;</a><a href="releases/">How to install, checksums &rarr;</a><a href="changelog.html">Changelog &rarr;</a></div>
 <p class="warn">Early test build: tested on two HP laptops and in virtual machines. Expect rough edges.</p>
-<ul class="what">
-<li>An AI assistant that lives on the laptop: it works without Internet and your conversations stay on it.</li>
-<li>Talk to it: hold Super+Space and speak; it can answer out loud.</li>
-<li>It runs the system for you: wifi, sound, screens, Bluetooth, brightness, reminders. It asks before changing anything.</li>
-<li>It can look at your screen and help with what you copied.</li>
-<li>Optional: connect a bigger AI model on a server of yours or a provider; the assistant says when data leaves the laptop.</li>
-<li>Install it on the disk with your files encrypted, and get signed updates.</li>
-</ul>
-<p class="reqs">Needs a 64-bit PC with 8 GB of RAM (16 GB recommended) and a 16 GB USB stick. On older processors (without AVX2) the local AI is very slow: use a server model instead.</p>
-<a class="changelog-link" href="/aios/changelog.html">CHANGELOG &rarr;</a>
+
 <div class="partners">
 <a href="https://www.nvidia.com/en-us/startups/" target="_blank" rel="noopener" title="NVIDIA Inception member"><img src="assets/inception-badge.svg" alt="NVIDIA Inception member" class="inception"></a>
 <a href="https://lambda.ai" target="_blank" rel="noopener" title="Lambda Labs"><img src="assets/lambda-logo.svg" alt="Lambda Labs"></a>
