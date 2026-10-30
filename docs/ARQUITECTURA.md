@@ -183,6 +183,15 @@ El suelo es un portátil x86_64 de 8 GB con un solo módulo de memoria, como el 
 | Recomendado | 16 GB, doble canal (añadir un SODIMM) | Qwen3.5-4B Q4–Q6 | ~10–14 tok/s |
 | Servidor | ≥ 32 GB, o VPS de 16 vCPU / 64 GB | Qwen3.6-35B-A3B Q4–Q8 | a medir en tu VPS |
 
+Medido en hardware real (hito 0, Qwen3.5-4B Q4_K_M, 4 hilos):
+
+| Equipo | CPU | Lectura del prompt | Generación | ¿Modelo local? |
+| --- | --- | --- | --- | --- |
+| HP 15s-fq1xxx (2019) | i5-1035G1, AVX-512, 7,5 GiB | 14–24 tok/s | 3,5–4,1 tok/s | Sí (suelo) |
+| HP 15-ba (antiguo) | AMD A8-7410, AVX sin AVX2, 6,7 GiB | ~3 tok/s | ~1,1 tok/s | No: el prompt fijo tarda 5 min y una respuesta corta, un minuto |
+
+**Límite de hardware**: sin AVX2 el modelo local no es usable. AIOS arranca y funciona igual (sesión gráfica, sonido, red, voz), pero el agente debe usar un proveedor remoto: el servidor del VPS o uno de terceros (`/pair`). Decidido con el usuario (30 oct): no se añade un modelo más pequeño para estos equipos.
+
 - El cuello de botella real en CPU es procesar el prompt, no generar: por eso el prefijo fijo es corto y estable.
 - `llama.cpp` se compila con selección de variante de CPU en tiempo de ejecución, para que una sola imagen funcione desde AVX1 hasta AVX-512 sin el SIGILL que hubo con el AMD A8.
 - La base sin modelo debe ocupar < 1 GB de RAM en reposo, para dejar ~6 GB al modelo y al contexto en el perfil mínimo.

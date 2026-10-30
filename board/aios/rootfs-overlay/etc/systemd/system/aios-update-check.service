@@ -1,8 +1,8 @@
 [Unit]
 Description=AIOS update check (tells the desktop, installs nothing)
 Documentation=file:/etc/aios/update.conf
-Wants=network-online.target
-After=network-online.target
+# Sin network-online.target: wait-online espera a todas las interfaces (también
+# la Ethernet sin cable) y fallaba a los 2 min. Sin red, se deja para mañana.
 
 [Service]
 Type=oneshot

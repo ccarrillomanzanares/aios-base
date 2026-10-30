@@ -128,7 +128,7 @@ if curl -s -m 5 http://127.0.0.1:8083/health 2>/dev/null | grep -q '"ok"'; then
     RUN_TIMEOUT=200
     run bench.txt curl -s -m 180 http://127.0.0.1:8083/completion \
         -H "Content-Type: application/json" \
-        -d "{\"prompt\": \"$(bench_prompt)\", \"n_predict\": ${BENCH_TOKENS:-64}, \"cache_prompt\": false}"
+        -d "{\"prompt\": \"$(bench_prompt)\", \"n_predict\": ${BENCH_TOKENS:-64}, \"cache_prompt\": false, \"id_slot\": 1}"
     RUN_TIMEOUT=20
     speed=$(grep -o '"predicted_per_second":[0-9.]*' "$dir/bench.txt" | cut -d: -f2 | cut -c1-5)
     pspeed=$(grep -o '"prompt_per_second":[0-9.]*' "$dir/bench.txt" | cut -d: -f2 | cut -c1-5)

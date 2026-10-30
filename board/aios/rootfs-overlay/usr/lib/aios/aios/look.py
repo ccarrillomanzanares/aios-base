@@ -60,6 +60,7 @@ def describe(question, png, provider=None):
         "max_tokens": 512}
     if p["local"]:
         body["chat_template_kwargs"] = {"enable_thinking": False}
+        body["id_slot"] = 1  # no el del chat (0): no borra su prompt ya procesado
     elif p.get("model"):
         body["model"] = p["model"]
     req = urllib.request.Request(p["url"].rstrip("/") + "/chat/completions",

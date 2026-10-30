@@ -116,6 +116,21 @@ Seguimiento (misma noche): en el HP 15s **tampoco se oía el beep** (la autoprue
 
 Bloqueo de pantalla (swaylock) imposible de quitar: rechazaba cualquier contraseña. PAM comprueba la contraseña con `unix_chkpwd`, que debe ser setuid root para leer `/etc/shadow`, y en la imagen estaba a 0755 (post-build no puede poner setuid). Arreglo: `board/aios/permissions.txt` en `BR2_ROOTFS_DEVICE_TABLE` (4755). Prueba nueva en QEMU: contraseña buena aceptada y mala rechazada por `unix_chkpwd`, como hace swaylock. Mientras tanto: Ctrl+Alt+F2 y `pkill swaylock`.
 
+## Traspaso (30 oct, mediodía) — leer primero
+
+- **Imagen publicada**: la de `dbd89d6` (ver «Traspaso (29 oct, noche)» más abajo). Lo que hay después en `main` va en la imagen siguiente, sin compilar todavía.
+- **HP 15s (2019)**: el usuario lo usa para trabajar; no se prueba en él por ahora. Las pruebas en hardware se hacen en el **HP 15-ba**.
+- **Diag del HP 15-ba con la imagen `dbd89d6`** (`~/aios-diag/20261030-105817-aios-0d6745.tar.gz`): autoprueba 11/11. sway arranca con radeonsi (arreglo de la espera a udev confirmado), sonido y micrófono bien, wifi bien. Hallazgos:
+  - Modelo: ~3 tok/s de lectura y ~1,1 tok/s de generación (variante `ivybridge`, sin AVX2). **Límite de hardware documentado** en `ARQUITECTURA.md` («Hardware objetivo»): en este equipo, proveedor remoto. No se añade un modelo pequeño (decisión del usuario).
+  - Un `/look` (596 tokens) en el único slot borró el prompt del chat ya procesado: el mensaje siguiente reprocesó 985 tokens (5,5 min). **Arreglado**: `aios-llama` con `-np 2 --kv-unified` (cada slot puede usar todo el contexto, misma memoria; solo el estado recurrente, ~50 MB, se duplica); el chat va al slot 0 (`SLOT` en `aios-chat`), `/look` y el benchmark del diag al 1. Prueba native `prefix-warm` con una petición intermedia al slot 1; comprobado que falla (956 tokens) si va al 0.
+  - `systemd-networkd-wait-online` fallaba: lo arrastraba `aios-update-check.service`, y espera a todas las interfaces (también la Ethernet sin cable). **Arreglado**: el servicio ya no depende de `network-online.target`; sin red, `aios update code notify` da `UPDATE_CHECK_SKIPPED` (no falla) y vuelve a intentarlo al día siguiente.
+  - Batería: `BAT1 (battery absent)`, muerta o quitada: en este equipo no se pueden probar las funciones de batería.
+  - El USB desapareció un instante a los 2 min (`Medium not present`, 4 lecturas con error) y se recuperó: contacto o pendrive. Vigilar.
+  - El modelo tarda 2,5 min en cargar desde el USB.
+- **El agente se inventó cómo instalar AIOS a disco**: el instalador no existe todavía. Arreglado en el prompt de sistema de `aios-chat`: si algo no está entre los comandos de sus herramientas, lo dice en lugar de inventar pasos; y el instalador «aún no está disponible». Cuando exista, actualizar esa frase y añadir el comando a `TOOLS`.
+- **Siguiente**: el instalador a disco (diseño en «Traspaso (29 oct, noche)»), probado en QEMU y luego en el HP 15-ba. Imagen siguiente: instalador + los arreglos de arriba.
+- **Push**: este VPS no tiene credenciales de GitHub; lo hace el usuario.
+
 ## Portátil antiguo: HP 15-ba (29 oct, noche)
 
 HP Notebook, placa 82F6, AMD A8-7410 (Mullins, Radeon R5, `radeon`), 6,7 GiB, BIOS (no UEFI), wifi RTL8723BE. Sonido con micrófono bien; voz: 56 s para 1,3 s de habla (el modelo aún cargaba).

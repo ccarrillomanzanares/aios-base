@@ -32,6 +32,7 @@ from aios import net as aiosnet  # noqa: E402  (nombre exacto de la red wifi)
 from aios import voice  # noqa: E402
 
 PORT = os.environ.get("AIOS_LLAMA_PORT", "8083")
+SLOT = 0  # slot del modelo local para el chat; /look y el diag usan el 1 (ver aios-llama)
 BASE = f"http://127.0.0.1:{PORT}"
 MAX_REPLY = 2048     # tokens de respuesta como máximo
 HISTORY_SHARE = 0.75  # la conversación cabe en el 75 % del contexto
@@ -46,7 +47,10 @@ SYSTEM = (
     "AI settings, updates) use the aios tool and base your answer on its JSON result; "
     "never invent results. If a result has a hint, follow it or tell the user. "
     "Use the look tool when the user asks about what is on the screen, and the clipboard "
-    "tool when they mention what they copied or want something copied."
+    "tool when they mention what they copied or want something copied. "
+    "If something is not among your tools' commands, AIOS cannot do it yet: say so "
+    "plainly and do not invent steps. Installing AIOS to the disk is not available yet "
+    "(it runs from the USB)."
 )
 TOOLS = [
     {"type": "function", "function": {
@@ -213,7 +217,7 @@ def warm_prefix():
             return
         except urllib.error.HTTPError:
             pass  # no está guardado todavía (o es de otra versión)
-        local_post("/completion", {"prompt": prefix, "n_predict": 0, "cache_prompt": True})
+        local_post("/completion", {"prompt": prefix, "n_predict": 0, "cache_prompt": True, "id_slot": SLOT})
         local_post("/slots/0?action=save", {"filename": name}, timeout=60)
     except (urllib.error.URLError, OSError, ValueError, KeyError):
         pass
@@ -313,6 +317,7 @@ def request(messages, sess, stream=True):
         # Sin razonamiento en el hito 0: en CPU cada token cuenta. Solo al
         # local: una API estricta rechaza parámetros que no conoce.
         body["chat_template_kwargs"] = {"enable_thinking": False}
+        body["id_slot"] = SLOT
     elif p.get("model"):
         body["model"] = p["model"]
     req = urllib.request.Request(p["url"].rstrip("/") + "/chat/completions",

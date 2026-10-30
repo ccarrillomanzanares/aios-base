@@ -52,9 +52,12 @@ if [ "$threads_batch" = auto ]; then
     [ "$threads_batch" -ge "$threads" ] || threads_batch=$threads
 fi
 
+# Dos slots con la caché de contexto compartida (--kv-unified: cada uno puede usar
+# todo el contexto, sin más memoria): el chat va al 0 y /look y el diag al 1, para
+# que no borren el prompt del chat ya procesado (en un CPU lento, minutos).
 set -- -m "$model" \
     --host "${HOST:-127.0.0.1}" --port "${PORT:-8083}" \
-    -c "$ctx" -t "$threads" -tb "$threads_batch" -np 1 --jinja
+    -c "$ctx" -t "$threads" -tb "$threads_batch" -np 2 --kv-unified --jinja
 [ -n "$mmproj" ] && set -- "$@" --mmproj "$mmproj"
 
 # Plantilla con el historial estable para que la caché del prompt sirva entre

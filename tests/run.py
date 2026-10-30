@@ -139,7 +139,7 @@ def native():
         subprocess.run(["python3", "-I", f"{LIB}/aios/gguf.py", "template", model, tpl])
         llama = subprocess.Popen(target_cmd(f"{TARGET}/usr/bin/llama-server", "-m", model, "--mmproj", mmproj,
                                             "--host", "127.0.0.1", "--port", str(port), "-c", "8192",
-                                            "-t", str(min(8, os.cpu_count())), "-np", "1", "--jinja",
+                                            "-t", str(min(8, os.cpu_count())), "-np", "2", "--kv-unified", "--jinja",
                                             *(["--chat-template-file", tpl] if os.path.exists(tpl) else []),
                                             "--slot-save-path", slots),
                                  env=env, stdout=open(f"{tmp}/llama.log", "w"), stderr=subprocess.STDOUT)
@@ -227,8 +227,10 @@ def native():
         probe = (f"import importlib.machinery as M, importlib.util as U, json\n"
                  f"l=M.SourceFileLoader('c','{OVERLAY}/usr/bin/aios-chat'); m=U.module_from_spec(U.spec_from_loader('c',l)); l.exec_module(m)\n"
                  f"m.warm_prefix(); m.warm_prefix()\n"
+                 # otra petición entre medias (como /look o el diag): va al slot 1 y no borra el del chat
+                 f"m.local_post('/completion', {{'prompt': 'An unrelated request. ' * 40, 'n_predict': 1, 'id_slot': 1}})\n"
                  f"r=m.local_post('/v1/chat/completions', {{'messages': [{{'role':'system','content':m.SYSTEM}}, {{'role':'user','content':'Hola'}}], "
-                 f"'tools': m.TOOLS, 'max_tokens': 8, 'chat_template_kwargs': {{'enable_thinking': False}}}})\n"
+                 f"'tools': m.TOOLS, 'max_tokens': 8, 'chat_template_kwargs': {{'enable_thinking': False}}, 'id_slot': m.SLOT}})\n"
                  f"print(json.dumps(r['timings']))")
         r = subprocess.run(["python3", "-B", "-c", probe], capture_output=True, text=True, timeout=600,
                            env=dict(chat_env, AIOS_LLAMA_PORT=str(port)))

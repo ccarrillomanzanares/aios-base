@@ -277,6 +277,8 @@ def code_notify(args):
     if read_kv(CONF).get("AUTO_CHECK", "yes") != "yes":
         return Result(True, "UPDATE_CHECK_DISABLED", text="Automatic update check disabled in " + CONF)
     res = code_check(args)
+    if res.code == "UPDATE_FETCH_FAILED":  # sin red: normal en un portátil, se repite mañana
+        return Result(True, "UPDATE_CHECK_SKIPPED", res.data, text="No network: update check skipped")
     latest = (res.data or {}).get("latest")
     if res.code not in ("UPDATE_AVAILABLE", "UPDATE_NONE") or not latest:
         return res
