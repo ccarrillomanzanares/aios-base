@@ -54,7 +54,6 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 Sesión de la noche: primeros arranques en el HP 15s (2019) y en el HP 15-ba (antiguo), arreglos y proveedores de IA. Detalle en las secciones «Primer arranque en el HP 15s», «Portátil antiguo» y «Cortafuegos y proveedores de IA».
 
 - **Imagen publicada** (30 oct, 08:01): commit `dbd89d6` (`DIRTY=no`), `make test` 92/92. Lleva todas las mejoras de la noche del 29 al 30 y, al 3 % de batería sin cargador, aviso en pantalla y voz y suspensión al minuto (se cancela al enchufar). `https://ccmai.org/aios/releases/aios.img.xz`, sha256 `6d39e335d12eac0afea65a6e2124dcf63b2f78297ce2a703a2286cb441056097`. Las anteriores quedan en `build/aios-d89c73c.img.xz` y `build/aios-17h55.img.xz`.
-- **Push pendiente**: este VPS no tiene credenciales de GitHub; el push lo hace el usuario (GitHub sigue en `148c7e6`).
 - **Pendiente de confirmar en el HP 15s con la imagen nueva**: beep y micrófono (si fallan, el diag trae ahora `audio-codec.txt` y `audio-alsa.txt`), velocidad entre mensajes (plantilla estable), wifi desde el agente (contraseña sin eco), bloqueo de pantalla, `/pair` con el servidor de ccmai.org (primera prueba con una clave real). En el HP 15-ba: que sway arranque (espera a udev en `aios-session`).
 - **VPS**: el receptor (`aios-diag-receiver`) sirve también el emparejamiento (`/aios-diag/pair`); se reinicia con `sudo systemctl restart aios-diag-receiver` tras tocar `diag-server.py` o `pair.html`. El llama-server de Docker con Caddy (`llama-qwen`, `llama-proxy`, `webuillama.ccmai.org:8443`) es del proyecto **llama-hardened**: no tocarlo ni usar sus claves.
 - **Siguiente: instalador a disco** (decidido con el usuario): borra el disco entero, se probará en el HP 15-ba (tiene una versión antigua de AIOS que se puede perder). Diseño propuesto:
@@ -64,7 +63,7 @@ Sesión de la noche: primeros arranques en el HP 15s (2019) y en el HP 15-ba (an
   - `/home` en LUKS2 (cryptsetup), desbloqueo al arrancar con systemd-cryptsetup (pide la frase en tty1 antes de la sesión). La raíz no se cifra: no hay initramfs (lección de newos).
   - Paquetes a revisar: `cryptsetup`, `BR2_PACKAGE_SYSTEMD_CRYPTSETUP` (o equivalente en 2026.08), `dosfstools`, `e2fsprogs`, `gptfdisk`/`sfdisk`, kernel con `DM_CRYPT` y AES/XTS `=y`.
   - Probar primero en QEMU con un disco virtual extra (BIOS y UEFI), añadirlo a `make test`, y solo después al portátil.
-- **Sin push** a GitHub (sigue en `148c7e6`); no hacer push sin que lo pida el usuario.
+- **Push** solo cuando lo pida el usuario (último: 30 oct, `c516b26`).
 
 ## Noche del 29 al 30 oct: mejoras en la rama `mejoras-termica-bateria-updates`
 
@@ -93,7 +92,7 @@ Para retomar en una sesión nueva: leer esta sección, la tabla de estado y `git
 - **Hecho y probado** (tabla de arriba). Pruebas: `make test` (fase native: binarios de la imagen en el VPS; fase vm: QEMU). Última pasada antes de la compilación final: native 8/8, vm 40/43, y los 3 fallos (faltaba `chpasswd` en BusyBox; comprobaciones de root) corregidos en el commit siguiente.
 - **29 oct, tarde**: compilación final hecha (53 min). `make test`: native 8/8, vm 53/53 tras corregir `aios-firstboot` (`sudo -k -S`: con la contraseña en la caché de sudo, la línea de la contraseña le llegaba a `chpasswd` y el cambio fallaba si antes se elegía idioma o zona), `aios bt` (sin `/sys/class/bluetooth` es `BT_NO_ADAPTER`, no servicio caído) y tres pruebas (swayidle apaga la pantalla de la VM antes de la captura; la imagen no trae `locale`; Bluetooth sin adaptador).
 - **Imagen para el HP publicada** (29 oct, 17:55): `/var/www/ccmai.org/aios/releases/aios.img.xz` (+ `.sha256`), sacada del commit de estas correcciones. El usuario la prueba antes de seguir con las mejoras.
-- **Sin publicar**: commits locales sin push (`git log origin/main..main`; GitHub va en `148c7e6`); el `aios.img.xz` publicado es del 29 oct (arriba). No hacer push ni regenerar/publicar el `.xz` sin que lo pida el usuario. `aios update code` en el HP no verá nada hasta que haya push y una versión firmada (`scripts/release.sh vX.Y.Z`, clave `~/.ssh/aios-release` en el VPS).
+- **Sin publicar**: (histórico: superado por el push del 30 oct). No hacer push ni regenerar/publicar el `.xz` sin que lo pida el usuario. `aios update code` en el HP no verá nada hasta que haya push y una versión firmada (`scripts/release.sh vX.Y.Z`, clave `~/.ssh/aios-release` en el VPS).
 - **VPS**: receptor de `aios-diag` activo (`aios-diag-receiver`, Apache `/aios-diag/` en ccmai.org; paquetes en `~/aios-diag/`). En el VPS corre además otro llama-server con Qwen3.6-35B (Docker, `llama-qwen`, tras Caddy en :8443 con `X-API-Key`): no usar su clave sin permiso.
 - **Siguiente paso del hito 0**: arrancar en el HP 15s, ejecutar `aios-diag` (sube autoprueba, capturas y logs) y revisar aquí lo que llegue.
 - **Pendiente de decidir con el usuario**: las «Mejoras propuestas» de abajo (las pidió para revisarlas).
@@ -129,7 +128,7 @@ Bloqueo de pantalla (swaylock) imposible de quitar: rechazaba cualquier contrase
   - El modelo tarda 2,5 min en cargar desde el USB.
 - **El agente se inventó cómo instalar AIOS a disco**: el instalador no existe todavía. Arreglado en el prompt de sistema de `aios-chat`: si algo no está entre los comandos de sus herramientas, lo dice en lugar de inventar pasos; y el instalador «aún no está disponible». Cuando exista, actualizar esa frase y añadir el comando a `TOOLS`.
 - **Siguiente**: el instalador a disco (diseño en «Traspaso (29 oct, noche)»), probado en QEMU y luego en el HP 15-ba. Imagen siguiente: instalador + los arreglos de arriba.
-- **Push**: este VPS no tiene credenciales de GitHub; lo hace el usuario.
+- **Push**: hecho (30 oct, `c516b26`). No hay `~/.gitconfig`: hay que indicar el almacén de credenciales, `git -c credential.helper=store push origin main`; y la identidad, `git -c user.name="Carlos Carrillo" -c user.email=ccarrillomanzanares@gmail.com commit ...`.
 
 ## Portátil antiguo: HP 15-ba (29 oct, noche)
 
