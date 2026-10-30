@@ -11,7 +11,8 @@
   install aios-install desde el USB a un segundo disco y ese disco arrancado
           en BIOS y en UEFI (frase de /home por la consola serie).
 
-Uso: tests/run.py [native|vm|install|all]. Resultados en build/test-results/.
+Uso: tests/run.py [native|vm|install|all], o tests/run.py boot DISCO [formato]
+(arranque de un disco publicable en BIOS y UEFI, lo usa scripts/publish.sh). Resultados en build/test-results/.
 Sin KVM la VM es lenta (~10 min); la fase native no la necesita.
 """
 import glob
@@ -442,7 +443,7 @@ def vm():
 
 # --- Fase install: aios-install desde el USB a un segundo disco ------------------------
 
-def qemu_boot(tmp, drives, uefi=False, name="vm"):
+def qemu_boot(tmp, drives, uefi=False, name="vm", fmt="raw"):
     """QEMU con unos discos (el primero arranca) y la consola serie en un socket."""
     ser = f"{tmp}/{name}.sock"
     fw = []
@@ -454,7 +455,7 @@ def qemu_boot(tmp, drives, uefi=False, name="vm"):
     kvm = ["-enable-kvm", "-cpu", "host"] if os.access("/dev/kvm", os.W_OK) else []
     disks = []
     for path, snapshot in drives:
-        disks += ["-drive", f"file={path},format=raw,if=virtio" + (",snapshot=on" if snapshot else "")]
+        disks += ["-drive", f"file={path},format={fmt},if=virtio" + (",snapshot=on" if snapshot else "")]
     q = subprocess.Popen(["qemu-system-x86_64", *kvm, "-m", "6G", "-smp", os.environ.get("AIOS_TEST_SMP", "12"),
                           *fw, *disks, "-display", "none", "-serial", f"unix:{ser},server,nowait",
                           "-nic", "user,model=virtio-net-pci"],
@@ -565,6 +566,25 @@ def install():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def boot_check(path, fmt):
+    """Arranque de un disco publicable (p. ej. el VMDK del .ova) en BIOS y en UEFI
+    hasta entrar como aios: lo usa scripts/publish.sh antes de publicar."""
+    print(f"== boot: {path} ({fmt})", flush=True)
+    tmp = tempfile.mkdtemp(prefix="aios-boot-", dir=os.path.join(ROOT, "build"))
+    try:
+        for uefi in (False, True):
+            name = "uefi" if uefi else "bios"
+            q, s = qemu_boot(tmp, [(path, True)], uefi=uefi, name=f"boot-{name}", fmt=fmt)
+            ok, _ = serial_login(s, q)
+            if ok:
+                out = serial_run(s, "cat /etc/aios/build-info")
+                ok = "COMMIT=" in out
+            report(f"boot-{name}", ok, s.text()[-300:])
+            q.kill()
+            q.wait()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
 def audio_has_sound(path):
     """¿Hay sonido en lo que QEMU grabó de la tarjeta (aios audio test, aplay)?"""
     try:
@@ -583,6 +603,8 @@ def audio_has_sound(path):
 def main():
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
     os.makedirs(RESULTS, exist_ok=True)
+    if which == "boot":  # tests/run.py boot DISCO [formato]
+        boot_check(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "raw")
     if which in ("native", "all"):
         native()
     if which in ("vm", "all"):
