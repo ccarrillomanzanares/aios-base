@@ -50,23 +50,37 @@ def network():
     return "NET OFF"
 
 
-ALERTED = {}  # batería -> último umbral avisado (10, 5)
+ALERTED = {}  # batería -> último umbral avisado (10, 5, 3)
+SUSPEND_AT = {}  # batería -> hora a la que se suspende si sigue sin cargador
+SUSPEND_GRACE = 60  # segundos entre el aviso y la suspensión
 
 
 def battery_alert(name, cap, st):
     """Aviso de batería baja: notificación y en voz alta, una vez por umbral. Al
-    3 % sin cargador, se suspende: mejor que apagarse de golpe a mitad de algo."""
+    3 % sin cargador avisa y, si en un minuto no se enchufa, suspende: mejor que
+    apagarse de golpe a mitad de algo."""
+    lang = os.environ.get("LANG", "en")[:2]
+    if name in SUSPEND_AT and st != "Discharging":  # enchufado durante la cuenta atrás
+        del SUSPEND_AT[name]
+        notify.send("Suspend cancelled", "The charger is connected.")
     if st == "Charging" or cap > 15:
         ALERTED.pop(name, None)
         return
-    lang = os.environ.get("LANG", "en")[:2]
+    if name in SUSPEND_AT:
+        if time.monotonic() >= SUSPEND_AT[name]:
+            del SUSPEND_AT[name]
+            subprocess.run(["systemctl", "suspend"], capture_output=True)
+        return
     if cap <= 3 and st == "Discharging" and ALERTED.get(name, 100) > 3:
         ALERTED[name] = 3
-        notify.send(f"Battery empty: {cap}%", "Suspending now. Plug in the charger.", "critical")
-        voice.speak("Batería agotada. Suspendo el equipo." if lang == "es" else
-                    "Battery empty. Suspending.", lang)
-        time.sleep(5)
-        subprocess.run(["systemctl", "suspend"], capture_output=True)
+        SUSPEND_AT[name] = time.monotonic() + SUSPEND_GRACE
+        notify.send(f"Battery empty: {cap}%",
+                    f"Suspending in {SUSPEND_GRACE} seconds. Plug in the charger to cancel.",
+                    "critical")
+        voice.speak(f"Batería agotada. Suspendo el equipo en {SUSPEND_GRACE} segundos si no "
+                    "conectas el cargador." if lang == "es" else
+                    f"Battery empty. Suspending in {SUSPEND_GRACE} seconds unless you plug in "
+                    "the charger.", lang)
         return
     for level, urgency in ((5, "critical"), (10, "normal")):
         if cap <= level and ALERTED.get(name, 100) > level:
