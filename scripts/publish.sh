@@ -4,6 +4,9 @@
 #   scripts/publish.sh img    aios.img -> aios.img.xz (+ .sha256): USB, BIOS y UEFI
 #   scripts/publish.sh vbox   aios.img -> aios.ova (+ .sha256): VM de VirtualBox lista
 #                             para importar; se arranca su disco en QEMU antes de publicar
+#   scripts/publish.sh web    la web (ccmai.org/aios) desde las plantillas de web/ con lo
+#                             publicado en releases/; «img» y «vbox» la regeneran al final
+#   scripts/publish.sh web preview   igual, pero solo en build/web-preview
 #
 # Las dos fases van por separado: tras «img» se avisa al usuario (que descarga la
 # imagen para probarla) y después se hace «vbox». Las dos parten de
@@ -16,6 +19,31 @@ IMG="$ROOT/build/output/images/aios.img"
 INFO="$ROOT/build/output/target/etc/aios/build-info"
 RELEASES="${AIOS_RELEASES:-/var/www/ccmai.org/aios/releases}"
 URL="https://ccmai.org/aios/releases"
+
+WEB="$(dirname "$RELEASES")"
+
+# web [preview]: plantillas de web/ -> build/web-preview, y si no es preview, a la web
+# (copia de las páginas anteriores en build/web-prev-FECHA)
+web() {
+    out="$ROOT/build/web-preview"
+    rm -rf "$out"
+    python3 "$ROOT/scripts/render-web.py" "$RELEASES" "$out"
+    [ "$1" = preview ] && { echo "Borrador en $out"; return 0; }
+    prev="$ROOT/build/web-prev-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$prev/releases"
+    for page in index.html changelog.html changelog-lfs.html releases/index.html; do
+        [ -f "$WEB/$page" ] && cp "$WEB/$page" "$prev/$page"
+        sudo install -m 0644 "$out/$page" "$WEB/$page"
+    done
+    curl -fsS https://ccmai.org/aios/ | grep -q "$(git -C "$ROOT" describe --tags --abbrev=0 --match 'v*')" || \
+        { echo "ERROR: la web no muestra la versión nueva" >&2; exit 1; }
+    echo "WEB ACTUALIZADA https://ccmai.org/aios/ (anterior en $prev)"
+}
+
+if [ "$1" = web ]; then
+    web "$2"
+    exit 0
+fi
 
 [ -f "$IMG" ] && [ -f "$INFO" ] || { echo "No hay imagen: ejecuta 'make'" >&2; exit 1; }
 COMMIT=$(sed -n 's/^COMMIT=//p' "$INFO" | cut -c1-7)
@@ -59,6 +87,7 @@ img)
     fi
     xz -t "$out"
     publish "$out" aios.img.xz
+    web
     ;;
 vbox)
     command -v VBoxManage >/dev/null || { echo "Falta VirtualBox (VBoxManage)" >&2; exit 1; }
@@ -68,6 +97,7 @@ vbox)
     # ya convertido y arrancado (aios-COMMIT.ova.ok): solo falta publicar
     if [ -f "$out.ok" ] && [ "$out.ok" -nt "$IMG" ]; then
         publish "$out" aios.ova
+        web
         exit 0
     fi
     rm -f "$out.ok"
@@ -99,9 +129,10 @@ vbox)
     rm -rf "$work"
     touch "$out.ok"
     publish "$out" aios.ova
+    web
     ;;
 *)
-    echo "Uso: $0 img|vbox" >&2
+    echo "Uso: $0 img|vbox|web [preview]" >&2
     exit 2
     ;;
 esac

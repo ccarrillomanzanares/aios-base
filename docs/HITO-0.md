@@ -148,6 +148,13 @@ Bloqueo de pantalla (swaylock) imposible de quitar: rechazaba cualquier contrase
 - **Siguiente**: imagen para el HP 15-ba con el instalador y los arreglos del mediodía; allí, `sudo aios-install` sobre el disco interno (BIOS), arrancar sin el USB y con él puesto.
 - Prueba en hardware: que el firmware arranque el disco (BIOS: `boot.img` en el MBR; UEFI: ruta de reserva), la frase de `/home` en tty1 con teclado es, y el tiempo de copia.
 
+## Publicación y web (30 oct, noche)
+
+- **v0.25.0** firmada y con push (la numeración sigue la de la versión anterior de AIOS, decisión del usuario). Desde `d6fd3fa` no cambia nada del sistema: los equipos con esa imagen la ven al día.
+- `scripts/publish.sh img|vbox|web [preview]`: `img` publica `aios.img.xz`; **se avisa al usuario** y después `vbox` publica `aios.ova` (VBoxManage convierte; su VMDK se arranca en QEMU en BIOS y UEFI antes de publicar, el VPS no tiene VT-x). Las dos regeneran la web al final. Publicadas las dos de `d6fd3fa`.
+- La web vive en `web/` como plantillas (`@VERSION@`, `@IMG_SHA@`...) que rellena `scripts/render-web.py` con lo publicado de verdad. Portada con las dos descargas, qué hace AIOS y requisitos; `releases/` con sha256 e instrucciones (USB, arranque, `aios-install`); changelog nuevo (v0.25.0) y el de la versión LFS en `changelog-lfs.html`. **Pendiente**: que el usuario vea el borrador antes de ponerla en marcha.
+- Del HP 15-ba (2014) con la imagen `d6fd3fa`: la instalación fue bien, pero al terminar la pantalla se quedó en negro y hubo que apagar a botonazo. Sospecha: swayidle bloquea y apaga la pantalla durante la copia (larga en ese equipo) y radeon no vuelve. El diag no llegó (ninguna subida desde las 10:58). Pedido por el usuario: **cifrado opcional** en el instalador.
+
 ## Traspaso (30 oct, mediodía) — leer primero
 
 - **Imagen publicada**: la de `dbd89d6` (ver «Traspaso (29 oct, noche)» más abajo). Lo que hay después en `main` va en la imagen siguiente, sin compilar todavía.

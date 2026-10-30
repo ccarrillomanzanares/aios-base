@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIOS — Changelog · CCMAI</title>
+<meta name="description" content="AIOS changelog — full history of the custom Linux distribution built from scratch.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 116'%3E%3Cpolygon points='50,4 92,30 92,86 50,112 8,86 8,30' fill='%23001100' stroke='%2300ff00' stroke-width='8'/%3E%3Ccircle cx='50' cy='58' r='16' fill='%2300ff00' opacity='0.9'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#000000;--ink:#33ff33;--bright:#00ff00;--dim:#008800;--dim2:#006600;--line:#006400;--panel:#001100;--mono:"Consolas","Menlo","DejaVu Sans Mono",monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--mono);background:var(--bg);color:var(--ink);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:2rem 1rem}
+.screen{width:min(880px,95vw);background:var(--panel);border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;box-shadow:0 0 30px rgba(0,255,0,.05)}
+.term-bar{display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line)}
+.term-title{color:var(--dim);font-size:.72rem;letter-spacing:.05em}
+.term-body{padding:1.2rem 1.8rem;overflow:hidden}
+.brand{text-align:center}
+.hex{display:inline-block;filter:drop-shadow(0 0 10px rgba(0,255,0,.4))}
+h1{color:var(--bright);font-size:1.7rem;letter-spacing:.18em;margin:.4rem 0 .2rem;text-shadow:0 0 14px rgba(0,255,0,.45)}
+.tagline{color:var(--dim);font-size:.85rem;letter-spacing:.06em;margin-bottom:1.4rem}
+.changelog{max-height:70vh;overflow-y:auto;padding-right:.5rem}
+.ver-block{border-left:2px solid var(--line);padding:.2rem 0 1.2rem 1.1rem;margin-bottom:.4rem}
+.ver-block h2{color:var(--bright);font-size:1.05rem;letter-spacing:.06em;margin:.6rem 0 .4rem;text-shadow:0 0 8px rgba(0,255,0,.35)}
+.ver-block h3{color:#00cc00;font-size:.82rem;margin:.5rem 0 .3rem}
+.ver-block ul{list-style:none}
+.ver-block li{font-size:.78rem;line-height:1.5;color:#22cc22;padding-left:1rem;position:relative;margin:.15rem 0}
+.ver-block li::before{content:"›";position:absolute;left:0;color:var(--dim)}
+.ver-block code{color:var(--bright)}
+.back{display:inline-block;margin-top:1.4rem;color:var(--bright);text-decoration:none;font-size:.85rem}
+.back:hover{text-shadow:0 0 8px rgba(0,255,0,.6)}
+.term-foot{padding:.5rem 1.8rem .7rem;border-top:1px solid var(--line);display:flex;justify-content:space-between;color:var(--dim2);font-size:.68rem}
+@media(max-width:760px){.term-body{padding:1rem 1rem}.ver-block li{font-size:.72rem}}
+.dl{font-size:.72rem;color:var(--dim);margin:.1rem 0 .4rem}
+.dl a{color:var(--bright);text-decoration:none}
+.dl a:hover{text-shadow:0 0 8px rgba(0,255,0,.6)}
+.dl.retired{color:#005500}
+li.sub{margin-left:1.4rem;list-style:none;position:relative}
+li.sub:before{content:"– ";color:var(--dim)}
+.changelog{scrollbar-color:#00ff00 #002200}
+.changelog::-webkit-scrollbar{width:8px}
+.changelog::-webkit-scrollbar-track{background:#002200}
+.changelog::-webkit-scrollbar-thumb{background:#00ff00;border-radius:4px}
+.md5{color:var(--dim2);font-size:.6rem}
+.term-foot a{color:var(--dim);text-decoration:none}
+.term-foot a:hover{color:var(--bright)}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="term-bar"><span class="term-title">aios@ccmai — /aios/changelog</span></div>
+  <div class="term-body">
+    <header class="brand">
+      <span class="hex"><svg viewBox="0 0 100 116" width="70" height="81" xmlns="http://www.w3.org/2000/svg"><polygon points="50,4 92,30 92,86 50,112 8,86 8,30" fill="#001100" stroke="#00ff00" stroke-width="8"/><circle cx="50" cy="58" r="16" fill="#00ff00" opacity="0.9"/></svg></span>
+      <h1>AIOS</h1>
+      <p class="tagline">changelog — full history from the start</p>
+    </header>
+    <div class="changelog">
+
+<div class="ver-block">
+<h2>v0.24.0 — 2026-09-12</h2>
+<h3>features</h3>
+<ul>
+<li><b>One ISO.</b> There is no longer a separate "with LLM" image: the same ISO carries the whole system and the local model is <b>downloaded during setup</b> (Qwen3.6-35B-A3B, 22.1 GB, no GPU needed). The image went from 7.3 GB to 1.6 GB.</li>
+<li><b>The local/cloud choice covers every case.</b> Both live mode and the disk installer ask the same question: run the model on your own computer, or use an external API. The hardware requirements are shown before downloading, together with a progress bar.</li>
+<li><b>Much shorter first-run setup.</b> What used to be ~18 questions is now ~8. Theme, voice, thinking and the date/time step are no longer asked: they are chat commands (<code>/theme</code>, <code>/voice</code>, <code>/think</code>) and the new <code>aios-time</code> command.</li>
+<li><b>New <code>aios-time</code> command</b> — timezone and NTP, the step that used to live inside the installer. Works interactively or as <code>aios-time zone Europe/Madrid</code>.</li>
+</ul>
+<h3>fixes</h3>
+<ul>
+<li><b>A wrong answer can no longer kick you out of the installer.</b> Ten places were audited and fixed: <code>_read_line</code> span forever on EOF, an empty password was accepted and silently skipped by <code>chpasswd</code> (leaving the factory password on the installed disk), the disk selector cancelled after three bad answers, and a typo in the wipe confirmation aborted the installation. Now they re-ask, and cancelling is explicit.</li>
+<li><b>Silent boot on the installed disk too</b>: GRUB menu hidden and the console cursor off, as in live mode.</li>
+<li><b>Real download of the AIOS local model</b> — resumes if interrupted, verifies the size, and reports decimal units (22.1 GB).</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.23.0 — 2026-09-12 19:12</h2>
+<h3>features</h3>
+<ul>
+<li><b>The AIOS LLM is now Qwen3.6-35B-A3B</b> (MoE, ~3B active of 35B, multimodal) instead of the fine-tuned Nemotron-3.5-Lightning. It does <b>text AND vision in one model</b>, so the separate vision container is gone.</li>
+<li class="sub">Chosen over the Nemotron for three measured reasons: <b>Apache 2.0 license</b> (the Nemotron was OpenMDW-1.1, with a patent clause — relevant for a globally distributed ISO), <b>identical behaviour in thinking ON and OFF</b> (94.3% in both modes, vs 97.1%/91.4% for the Nemotron), and <b>better tool-call discipline</b> (<code>CONFIRM</code> 3/4 vs 2/4, <code>TOOL</code> 17/17 vs 16/17 in the OFF mode).</li>
+<li class="sub">The Nemotron was faster (~26 tok/s vs ~9 tok/s on the CPU-only VPS) and scored slightly higher on thinking ON. Both trade-offs were accepted by Carlos after using it: <i>"lo noto muchísimo mejor que cualquier otro agente/llm que hemos probado"</i>.</li>
+<li class="sub">Weights: <code>Qwen3.6-35B-A3B-UD-Q4_K_M.gguf</code> (21.1 GB) + <code>mmproj-qwen3.6-F16.gguf</code> (858 MB).</li>
+<li><b>Vision now goes through the same model.</b> <code>describe_screen()</code> points at the chat endpoint, so there is one model to run and one route to maintain instead of two.</li>
+<li class="sub">Verified with a purpose-made image (text <code>RACK 7 TEMP 63C</code>) — the model read it back exactly.</li>
+<li class="sub">Verified on a real desktop: it reported the <b>window title</b> (<code>bios@aios:~</code>), the user, the hostname and what the terminal was doing. The previous 4B model could not do this.</li>
+<li class="sub">The <code>/vision/*</code> route and the <code>llama-vision</code> container (Gemma-3-4B + mmproj) were removed; the <code>vision.endpoint</code> default now points at the chat endpoint.</li>
+<li><b><code>/v1</code> is kept as a legacy alias</b> and now serves the same model as <code>/ollama</code>, so existing configurations and any client pointed at <code>/v1</code> keep working unchanged.</li>
+</ul>
+<h3>fixes</h3>
+<ul>
+<li><b><code>describe_screen()</code> returned an EMPTY description.</b> It was the only LLM call in the agent that did <b>not</b> send <code>enable_thinking</code>; the model reasoned by default, spent all 400 <code>max_tokens</code> on <code>reasoning_content</code> and returned an empty <code>content</code>. Fixed by sending <code>enable_thinking: false</code>, like every other call in the agent. This bug existed before this release — the previous model happened to work anyway.</li>
+<li><b><code>setup.py</code> would configure a broken installation.</b> The model list for the VPS provider still offered <code>nemotron-3.5-lightning</code> (removed) and <code>qwen3.5:9b</code> (no longer served), and the vision option wrote the now-removed <code>/vision</code> endpoint. Both corrected to the live model and endpoint.</li>
+</ul>
+<h3>infra</h3>
+<ul>
+<li>The <code>llama-hardened</code> stack is now <b>two containers</b> (<code>proxy</code> + <code>qwen</code>) instead of four. Removed: the <code>llama</code> (Nemotron) and <code>vision</code> (Gemma) services, their entrypoints, their Dockerfile <code>COPY</code> lines, the <code>/vision</code> Caddy block, the <code>depends_on</code> that referenced the removed service, the two Nemotron GGUFs (48 GB), the two Gemma GGUFs (3.3 GB), a stray second Gemma server that had been running unattended on port 8095 for 3 days, and the dead <code>k2-test</code> tree.</li>
+<li>Free space on the VPS went from <b>60 GB to 136 GB</b>; RAM in use dropped from 30.5 GB to ~15 GB.</li>
+<li>Backups of every file touched are in <code>~/llama-hardened/.bak-qwen36/</code>.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.22.0 — 2026-09-11 23:55</h2>
+<h3>fixes</h3>
+<ul>
+<li><b>The AIOS LLM (Nemotron-3.5-Lightning, fine-tuned) now works with thinking ON <i>and</i> OFF, both with tool calling.</b> The previous fine-tune returned an <b>empty response</b> (1 token, <code>finish=stop</code>) whenever <code>enable_thinking=false</code>: the agent went mute on any request that needed a tool call ("hello" answered, "check the running containers" did not).</li>
+<li class="sub">Root cause: at training time the chat template was rendered <b>without</b> <code>enable_thinking</code>, so it emitted a <b>closed, empty reasoning block</b> (<code> thinking</code>) in front of the tool call. The model learned that transition and was out of distribution when a real reasoning block opened at inference.</li>
+<li class="sub">Fix in the re-training: <code>mask_generation_prompt: true</code> + <code>mask_reasoning_content: true</code> (the template's own tokens are no longer supervised), tool-call <code>arguments</code> kept as a <b>mapping</b> (the Nemotron template iterates them with <code>|items</code>), and <code>model.output_hidden_states: true</code>.</li>
+<li class="sub">Verified against the public endpoint in <b>both</b> modes: <code>run_command {"command":"sven install vim"}</code> — with <code>enable_thinking: true</code> and <code>false</code>.</li>
+<li><b>Model, dataset, recipes and scripts are now versioned</b> in the <code>aios-model</code> repo: behaviour dataset (249 pairs, 154 with real <code>tool_calls</code>), NeMo AutoModel recipes, the manual tensor-merge script and the training/deploy scripts.</li>
+<li>The <code>enable_thinking</code> cloud patch in <code>agent.py</code> is no longer required: the model handles both modes, so <code>/think on</code> and <code>/think off</code> both work.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.21.0 — 2026-09-11 22:30</h2>
+<h3>features</h3>
+<ul>
+<li><b>BitTorrent client with media playback</b> (new module <code>torrent.py</code> + 5 agent tools). The user asks in plain language ("I want to watch Metropolis by Fritz Lang") and the agent searches, downloads and plays — no GUI needed.</li>
+<li class="sub"><code>torrent_search(query)</code> — searches <b>apibay.org</b> (The Pirate Bay API) and <b>torrents-csv.com</b>, merges and ranks by seeders, caches the numbered list so <code>torrent_download("&lt;number&gt;")</code> just works. Verified: "Metropolis 1927 Fritz Lang" → restored 1080p release, 115 seeders.</li>
+<li class="sub"><code>torrent_download</code> / <code>torrent_status</code> / <code>torrent_control</code> (start|stop|verify|remove|remove-data) — driven through the <b>transmission-daemon</b> RPC on 127.0.0.1:9091.</li>
+<li class="sub"><code>torrent_play([id])</code> — plays with <b>mpv</b> fullscreen (ffmpeg does the decoding); with no id it plays the newest media file downloaded.</li>
+<li class="sub">Verified end-to-end on the build tree: 263 MB torrent downloaded to 100% in 70 s (9.76 MB/s, 50 peers), then stop + remove-data clean.</li>
+<li><b>aria2c</b> for plain HTTP/FTP/FTP-magnet documents (PDFs, archives) — <code>torrent.fetch()</code>.</li>
+<li>New packages installed with sven (official repos only): <code>transmission-cli</code> 4.1.3-2, <code>aria2</code> 1.37.0-3, <code>mpv</code> 0.41.0-6 (+ <code>ffmpeg</code>/<code>libbluray</code> refreshed to the same upstream so <code>libbluray.so.4</code> and <code>so.3</code> coexist).</li>
+<li>Config in <code>/etc/aios-torrent.conf</code> (system defaults, shipped in aios-lfs) with a per-user override in <code>~/.aios/torrent.conf</code>; downloads default to <code>~/Downloads</code>.</li>
+<li><code>aios-update</code> deploys <code>torrent.py</code> and the new system configs (previously the manifest would have silently skipped them).</li>
+</ul>
+<h3>fixes</h3>
+<ul>
+<li><b>transmission-daemon runs as the desktop user</b>: the Arch unit uses <code>User=transmission</code> (uid 169) and <code>/var/lib/transmission</code>, so downloads would not be readable/deletable by the user who watches them. New drop-in <code>transmission-daemon.service.d/user.conf</code> (aios-lfs) sets <code>User=aios</code>, <code>HOME</code>/XDG under <code>/home/aios</code> and <code>--download-dir /home/aios/Downloads</code>. No <code>Group=</code> line: AIOS' user aios has primary group <code>wheel</code>, and a wrong <code>Group=</code> fails the unit with 216/GROUP.</li>
+<li>The daemon is <b>not enabled at boot</b> — <code>torrent.py</code> starts it on demand (systemctl, NOPASSWD in the AIOS live/installed model, with a direct-launch fallback), so an unused system keeps no extra service or open peer port.</li>
+<li>Magnet building: Transmission 4.1.3 rejects a percent-encoded <code>xt=urn%3Abtih%3A&lt;hash&gt;</code> with "unrecognized info" — the xt value is now emitted verbatim (raw colons), only <code>dn</code>/<code>tr</code> are encoded.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.20.0 — 2026-09-09 12:45</h2>
+<h3>features</h3>
+<ul>
+<li><b>AI vision (optional)</b>: new <code>describe_screen()</code> tool — captures the screen and describes it with <b>Gemma-3-4B</b> (multimodal VLM) on the VPS. Recognizes apps, logos and UI text (verified: identified the Grafana editor, "Prometheus default", "Kick start your query"...).</li>
+<li><b>llama-hardened stack extended</b>: third container <code>llama-vision</code> (Gemma-3-4B Q4_K_M + mmproj) on <code>/vision/*</code> with the same X-API-Key. Analysis takes ~43s (12.6s prompt + 30.8s gen).</li>
+<li><b>Optional for privacy</b>: setup asks <i>"Enable vision?"</i> (only for the LLM VPS provider). If declined, the agent keeps using browser/OCR. Config stores <code>vision.enabled</code> + endpoint + key.</li>
+<li><b>Model ladder tested</b>: SmolVLM-256M (175MB) ❌, SmolVLM-500M (437MB) ❌, SmolVLM2-2.2B (1.9GB) ⚠️ imprecise, <b>Gemma-3-4B (2.5GB) ✅</b> — the smallest that works.</li>
+</ul>
+<h3>fixes</h3>
+<ul>
+<li><b>Anti-hallucination compression</b>: the LLM summary is verified against real keywords from the history; if it does not mention them (K2 invented a fake Node.js/MongoDB conversation), it is rejected and an honest summary is used.</li>
+<li><b>K2 tamed</b>: <code>MAX_TOKENS</code> 2048 + <code>reasoning_effort: low</code> + 240s watchdog + no retry — a turn no longer burns 40 min thinking.</li>
+<li><b>API-FIRST prompt</b>: <code>fetch()</code> from <code>browser_eval</code> for authenticated web apps (Grafana, Prometheus, Jenkins, GitLab...).</li>
+<li><b>browser_eval prompt</b>: returns value (not console.log) + small steps in UI.</li>
+<li><b>OCR</b>: uses only installed languages (eng) instead of eng+spa which failed.</li>
+<li><b>Software inventory</b>: auto-record installs/removals + <code>get_installed_info</code> tool + markdown fact sheets.</li>
+<li><b>Anti-loop order fix</b>: the loop guard now runs BEFORE the "command previously failed" guard (which used <code>break</code> and skipped the counter — K2 looped ~18x on the same failing command). <code>continue</code> (not <code>break</code>) + whitespace-stripped args.</li>
+<li><b>Cleanup</b>: removed dead tools from the registry and code (<code>mcp_call</code>, <code>run_playbook</code>, <code>process_send</code>, module <code>playbook.py</code>); deleted the discarded vision-ladder GGUFs on the VPS (SmolVLM 256M/500M/2.2B) — only K2 + Gemma-3-4B remain; vision policy added to the prompt (describe_screen → browser_eval → ocr → screenshot).</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.19.0 — 2026-09-08 22:40</h2>
+<h3>features</h3>
+<ul>
+<li><b>"LLM VPS (llama-hardened)" provider</b> in setup: selectable alongside cloud providers, with two models:</li>
+<li class="sub"><code>k2-horizon:7b</code> → <code>webuillama.ccmai.org/v1/chat/completions</code> (K2-Horizon-7B Q4_K_M, llama-server fork MBZUAI-IFM)</li>
+<li class="sub"><code>qwen3.5:9b</code> → <code>webuillama.ccmai.org/ollama/v1/chat/completions</code> (Qwen3.5-9B, same stack, separate route)</li>
+<li class="sub">Same <code>X-API-Key</code> for both; the menu propagates the URL per model (3rd tuple element).</li>
+</ul>
+<h3>breaking change</h3>
+<ul>
+<li><b>Ollama Hardened → llama-hardened</b>: the VPS stack changes engine. <code>ollama-core</code> (Ollama 0.32.15) cannot serve K2 (MoVA architecture not yet supported in its llama.cpp), so the stack moves to <b>llama-server from the MBZUAI-IFM fork</b> behind Caddy X-API-Key. <code>/v1</code> serves K2 and <code>/ollama/*</code> serves Qwen3.5. Ollama stays stopped as reserve (models intact in its volume).</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.18.6 — 2026-09-08 17:05</h2>
+<h3>features</h3>
+<ul>
+<li><b>Barge-in (interrupt the agent)</b>: during the agent's turn (while it writes or runs tools), <b>Tab</b> pauses and opens a mini-input to add more information by text; <b>Ctrl+R</b> captures info by voice (microphone + STT). The turn is cut gently and the agent relaunches with the info as a new query, keeping context. No Ctrl+C. Documented in <code>shortcuts.txt</code> (F1).</li>
+<li><b>browser_elements</b>: new tool that inventories the page's interactive elements (buttons, links, inputs) as readable refs (<code>btn-create-dashboard</code>, <code>inp-search</code>) with visible text and CSS selector — the agent SEES the page before clicking (like Hermes <code>drive_preview action="elements"</code>).</li>
+<li><b>browser_click/browser_type with text fallback</b>: if the selector doesn't exist, it searches by visible text (<code>innerText</code>/<code>aria-label</code>/<code>value</code>/<code>placeholder</code>, case-insensitive) — click by what you SEE ("Create your first dashboard") without guessing selectors.</li>
+<li><b>Browser prompt updated</b>: the agent must call <code>browser_elements()</code> BEFORE clicking/typing (workflow navigate → elements → click/type).</li>
+</ul>
+<h3>fixes</h3>
+<ul>
+<li><b>token estimator len//2</b> (overestimates for all European languages, measured 2.8-4.4 chars/token real vs 2 estimated): compresses earlier, never reaches Cloudflare's 100s limit.</li>
+<li><b>compression loop (max 3 passes)</b>: if after compressing the history is still above the threshold, compress again — the final prompt always fits.</li>
+<li><b>2000 char cap on the text to summarize</b>: the compression call is light (~15-20s) even with a huge history.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.18.5 — 2026-09-07 20:21</h2>
+<h3>features</h3>
+<ul>
+<li><b>Chromium + CDP (browser_*)</b>: new tools <code>browser_navigate</code>, <code>browser_eval</code>, <code>browser_click</code>, <code>browser_type</code> — real browser control via DevTools Protocol (real DOM, clicks by selector, forms by field). No more blind OCR. Chromium 152 installed from sven.</li>
+<li><b>Browser prompt</b>: the agent uses <code>browser_*</code> to browse (never <code>process_send</code> — browsers ignore stdin); documented workflow (navigate → eval → click → type).</li>
+<li><b>Dynamic installer banner</b>: <code>aios-install</code> reads the version from the CHANGELOG (shows <code>AIOS LFS INSTALLER v0.18.5</code> instead of the hardcoded <code>1.1.3</code>).</li>
+</ul>
+<h3>fixes</h3>
+<ul>
+<li><b>silent voice (root cause)</b>: the tic aplay holds the PCM device; TTS launched another aplay → <code>Device or resource busy</code> silenced. Fix: close/reopen the tic aplay INSIDE the <code>_speak_sync</code> thread (voice.py) — <code>speak()</code> spawns a thread and returns, so closing in chat.py reopened before TTS opened the device.</li>
+<li><b>browser did not navigate</b>: <code>_ensure_browser()</code> used <code>_urlopen</code> without importing it (silent NameError) in the check and in the wait loop → 10s timeout. Fix: <code>urllib.request as _url</code> in both + 30s wait (Chromium takes a while to start on the laptop).</li>
+<li><b>aios-diag not executable</b>: mode 100755 in git (the <code>/usr/local/bin/aios-diag</code> wrapper had no <code>x</code>).</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.18.4 — 2026-09-07 15:58</h2>
+<h3>fixes</h3>
+<ul>
+<li><b>laptop boot (boot race)</b>: getty@tty1 launched X before udev applied permissions to <code>/dev/dri/card0</code> → <code>open /dev/dri/card0: Permission denied</code> → <code>no screens found</code> → getty loop → <code>start-limit-hit</code> → blinking cursor with no session. <code>aios-session</code> now waits up to 30s for <code>/dev/dri/card0</code> to be readable/writable before <code>startx</code>.</li>
+<li><b>laptop audio (same race)</b>: <code>audio-detect.py</code> ran 9s into boot, when only the HDMI card was visible → wrote <code>plughw:0,0</code> (HDMI) instead of the analog one. Now if the only detected card is HDMI, it waits and retries (up to 15s) until the analog card appears.</li>
+<li><b>deploy</b>: <code>aios-deploy-and-build.sh</code> now copies <code>scripts/aios-session</code> and <code>scripts/audio-detect.py</code> to the tree (they never reached the ISO before).</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.18.3 — 2026-09-07 08:06</h2>
+<h3>fixes</h3>
+<ul>
+<li><b>timeout HTTP 120s → 300s</b>: long generations on CPU (stories, long answers) exceeded the 120s limit and the agent cut with <code>Read timed out</code>.</li>
+<li><b>compression summary as <code>user</code> (not <code>system</code>)</b>: the no-thinking model <code>frob/qwen3.5-instruct:9b</code> requires <code>system</code> at the start of the history; a summary inserted as <code>system</code> in the middle caused 500 <code>Jinja Exception: System message must be at the beginning</code>.</li>
+<li><b>cloud compression threshold 20% → 10%</b>: keeps prompt-eval (~25 tok/s on CPU) under the timeout with large contexts.</li>
+<li><b>tool output cap</b>: ANSI strip + truncation to 1200/1000 chars (was 5000/2000) — command outputs no longer bloat the context.</li>
+<li><b>MAX_TURNS 10 → 25</b> + when exhausted the agent asks <code>(continue) Aún no he terminado... ¿Quieres que continúe?</code> instead of <code>(no response)</code>.</li>
+<li><b>procedural memory filter</b>: no longer caches greetings/trivial queries, short answers (&lt;80 chars) or <code>(continue)</code> status messages.</li>
+<li><b>OCR eng+spa</b>: tesseract with Spanish for Spanish pages.</li>
+<li><b>bracketed paste in <code>_read_line()</code></b> (setup.py): copy/paste works in the API key prompt.</li>
+<li><b>dynamic version banner</b>: <code>AIOS/v0.18.3</code> is read from the CHANGELOG (auto-updates with each release) instead of the hardcoded <code>AIOS/1.4</code>.</li>
+<li><b>Wargames teletype tick</b>: 4kHz transient + 250Hz body, half volume, <code>--period-size=128</code> (tick per character, no bursts); the user-typing tick is removed (only the agent's typewriter sounds).</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.18.2 — 2026-09-04 23:21</h2>
+<h3>fixes</h3>
+<ul>
+<li><b>docker group not created on install</b>: missing systemd ALPM hooks (<code>20-systemd-sysusers</code> etc.) — added to the tree; <code>sven install docker</code> now creates the <code>docker</code> group automatically.</li>
+<li><b>docker socket not connecting</b>: LFS symlinks <code>/var/run → /run</code>, <code>/var/lock → /run/lock</code>, <code>/etc/mtab → /proc/self/mounts</code> were missing (lost by an old mksquashfs over overlay) — recreated in tree and installed disks.</li>
+<li><b>build hardening</b>: <code>aios-deploy-and-build.sh</code> verifies/recreates the 3 LFS symlinks before every <code>mksquashfs</code>.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.18.1 — 2026-09-04 17:58</h2>
+<h3>fixes</h3>
+<ul>
+<li><b>installer password bug (critical)</b>: <code>getpass</code> read passwords corruptly on a dirty raw terminal — replaced with a self-contained <code>_read_password()</code> that masks input and controls the tty directly.</li>
+<li><b>installer chroot ordering bug (critical)</b>: <code>cleanup_chroot()</code> ran before <code>set_passwords()</code>/<code>harden_*</code> — reordered so it runs last, just before the final <code>umount</code>.</li>
+<li><b>installer password — real root cause (PAM)</b>: <code>/etc/pam.d/system-auth</code> was truncated to a single line with no <code>password</code> stack — <code>chpasswd</code> never wrote to <code>/etc/shadow</code>. Restored the full BLFS <code>system-auth</code>.</li>
+<li><b>agent anti-loop removed</b>: the "3 identical tool calls" detector caused false positives — replaced with a simpler guard that only refuses to re-run a <code>run_command</code> that already failed.</li>
+<li><b>sudo password asked inline</b>: removed the <code>/sudo</code> round-trip; <code>run_command</code> prompts for the sudo password (masked) directly.</li>
+<li><b>timezone selector</b>: hierarchical picker (continent → region → city) integrated with NTP; persisted to disk on install.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.18 — 2026-08-31 19:48</h2>
+<h3>new features</h3>
+<ul>
+<li><b>local LLM — Qwen3.5-9B</b>: the bundled local model is now <code>Qwen3.5-9B</code> (Q4_K_M), replacing Qwen3-8B — better reasoning and tool calling. <code>llama-server</code> upgraded to <b>b10655</b> (CPU-dispatched: runs on any x86-64, from SSE4.2 to AVX-512).</li>
+</ul>
+<h3>fixes</h3>
+<ul>
+<li><b>cloud empty responses</b>: the Ollama Hardened server now serves <code>qwen3.5:9b</code> with a <b>32K context window</b> (<code>OLLAMA_CONTEXT_LENGTH=32768</code>) instead of the 4K default — fixes empty responses where reasoning + tool-calling exhausted the context.</li>
+<li><b>agent empty-response diagnostics</b>: on an empty response the agent now reports the cause (<code>finish_reason</code>, reasoning characters emitted) instead of the generic "(empty model response)".</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.17.2 — 2026-08-30 22:49</h2>
+<h3>fixes</h3>
+<ul>
+<li><b>audio</b>: <code>aplay</code> now uses a minimal period/buffer (<code>--period-size=512 --buffer-size=1024</code>) so the typewriter tic sounds per-character instead of accumulating into a continuous beep.</li>
+<li><b>volume keys</b>: the i3 volume bindings now use <code>amixer set Master</code> (the same ALSA mixer <code>aplay</code>/<code>plughw</code> uses) instead of <code>pactl</code> (PipeWire), so the keys actually change the volume.</li>
+<li><b>setup note</b>: keyboard shortcuts indicate that chat commands (<code>/sound</code>, <code>/voice</code>, <code>/theme</code>) work after setup (once the agent/LLM starts).</li>
+<li><b>Ollama Hardened provider</b>: endpoint moved to <code>:443</code> (valid cert via Cloudflare) and TLS verification enabled by default (<code>VERIFY_TLS</code> no longer tied to <code>x-api-key</code>); model switched from Moonlight (no function calling) to <code>qwen3.5:9b</code>.</li>
+<li><b>context/tokens</b>: cloud <code>max_tokens</code> now scales with the context (<code>_cloud_context // 4</code>) instead of a fixed 4096, and the Ollama Hardened <code>context_limit</code> raised 8K → 32K — fixes empty responses from reasoning models exhausting the token budget.</li>
+<li><b>status bar</b>: <code>CTX</code> block now resolves the Ollama Hardened context limit (32K) instead of the 128K default.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.17.1 — 2026-08-30 14:10</h2>
+<h3>fixes</h3>
+<ul>
+<li><b>audio</b>: <code>aios-audio.service</code> was never enabled (missing <code>multi-user.target.wants</code> symlink) — <code>audio-detect.py</code> didn't run at boot and <code>asound.conf</code> kept the hardcoded <code>plughw:1,0</code>. Now enabled, analog card auto-detected.</li>
+<li><b>sven</b>: <code>run_command</code> passed both <code>stdin</code> and <code>input</code> to <code>subprocess.run</code> — <code>sven update</code>/<code>upgrade</code>/<code>install</code> failed with "stdin and input arguments may not both be used". Fixed.</li>
+<li><b>sudo</b>: agent now detects NOPASSWD (<code>sudo -n true</code>). Live runs <code>sudo</code> directly; installed asks for <code>/sudo &lt;password&gt;</code> (in-memory only, never persisted).</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.17 — 2026-08-30 01:48</h2>
+<div class="dl retired">aios-v0.17.iso — retired (no longer hosted)</div>
+<h3>new features</h3>
+<ul>
+<li><b>sudo with password</b>: <code>/sudo &lt;password&gt;</code> (cached in session) + <code>run_command</code> uses <code>sudo -S</code>; the agent accepts the password in local and cloud modes (no NOPASSWD needed).</li>
+<li><b>audio-detect.py</b>: autodetects the analog sound card and writes <code>asound.conf</code> dynamically — audio works on any hardware.</li>
+</ul>
+<h3>i18n</h3>
+<ul>
+<li>All comments and user-facing strings translated to English (agent, installer, README, docs, scripts). Fixes <code>&lt;think&gt;</code> tag corruption.</li>
+</ul>
+<h3>quotes</h3>
+<ul>
+<li><b>5 Terminator quotes</b> (T1 + T2) and <b>2 Matrix quotes</b> (the full red pill / blue pill monologue + "Whoa. Déjà vu."). Quote lists unified (<code>setup.py</code> was missing Blade Runner) + shuffle-cycle picker to avoid repeats.</li>
+</ul>
+<h3>fixes</h3>
+<ul>
+<li>Don't auto-open Firefox for the API key (ask first).</li>
+<li>Login cursor: remove <code>vt.global_cursor_default=0</code> from the disk GRUB entry.</li>
+<li>Audio/voice/chat patches.</li>
+<li>Restore <code>scripts/aios-diag</code> exec bit.</li>
+</ul>
+<h3>license</h3>
+<ul>
+<li>MIT license added.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.16 — August 2026</h2>
+<div class="dl retired">aios-v0.16.iso — retired (no longer hosted)</div>
+<h3>voice (TTS/STT) — independent <code>voice:</code> section from chat</h3>
+<ul>
+<li><b>Config</b>: <code>voice:</code> section in <code>config.yaml</code> (tts/stt/tts_lang), separate from <code>cloud:</code> (chat). Setup (live and <code>aios-install</code>) lets you choose TTS (off/espeak/gemini/openai), STT (off/vosk/gemini/openai) and language; voice keys go to <code>~/.aios/.env</code> apart from the chat key.</li>
+<li><b>TTS</b> (<code>voice.py</code>): local espeak-ng (no key), Gemini <code>gemini-2.5-flash-tts</code> and OpenAI <code>gpt-4o-mini-tts</code>. Skips code blocks/tables and speaks in a thread. <code>espeak-ng</code> installed via sven.</li>
+<li><b>STT</b> (<code>voice.py</code>): local vosk, Gemini and OpenAI (records with <code>arecord</code>).</li>
+<li><b>Commands</b>: <code>/voice</code> (toggles, persists) and <code>/mic</code> (records + transcribes + sends).</li>
+<li><b>Icon</b>: <code>VOX/MIC</code> block in the i3 bar.</li>
+</ul>
+<h3>fixes</h3>
+<ul>
+<li><b>Beep/tic did not sound</b>: <code>aplay --buffer-size=512 --period-size=512</code> (buffer == period) failed silently on some codecs; removed. <code>aios-diag</code> now collects audio state.</li>
+<li><b>Loading bar in English</b>: the LLM progress bar text switched to English.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.15 — August 2026</h2>
+<div class="dl retired">aios-v0.15.iso — retired (no longer hosted)</div>
+<h3>fixes for LLM boot and screenshot</h3>
+<ul>
+<li><b>LLM loading stuck at 85%</b>: <code>select</code> + buffered <code>readline</code> left <code>listening</code> stuck; fix: reader thread + queue (no select).</li>
+<li><b>Printscreen (<code>Print</code>)</b>: inline <code>scrot</code> with <code>%</code> + <code>&amp;&amp;</code> + nested quotes broke the i3 parser; fix: dedicated <code>scripts/screenshot.sh</code>.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.14 — August 2026</h2>
+<h3>agent: executes real tools</h3>
+<ul>
+<li><b><code>import sys</code> in <code>agent.py</code></b>: fixed <code>NameError</code> swallowed by the stream <code>except</code> (the agent seemed "mute").</li>
+<li><b>Tool visible before executing</b>: the <code>⚙ tool(...)</code> is shown before <code>execute_tool</code>.</li>
+<li><b><code>run_command</code> with correct stdin</b>: <code>/dev/null</code> by default + auto-<code>y</code> for sven prompts.</li>
+<li><b>Tool <code>list_desktop_apps</code></b>: parses <code>/usr/share/applications/*.desktop</code>.</li>
+<li><b>Grounding</b>: sven always with sudo, never end the turn with a promise.</li>
+</ul>
+<h3>local LLM loading</h3>
+<ul><li><b>Real progress bar</b> in <code>_start_local_model</code>: real phases from the llama-server log.</li></ul>
+<h3>screenshots and diagnostics</h3>
+<ul>
+<li><b>Printscreen</b>: <code>scrot</code> to <code>~/screenshots/</code>; documented in <code>shortcuts.txt</code>.</li>
+<li><b><code>aios-diag</code></b>: collects diagnostics, redacts keys, uploads <code>tar.zst</code> via rsync to a write-only <code>diag</code> account.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.13 — August 2026</h2>
+<h3>stability fixes</h3>
+<ul>
+<li><b>Live→menu loop</b>: <code>_live_flow</code> returns <code>True</code> and <code>main()</code> breaks.</li>
+<li><b>Internet with retry</b>: waits for DHCP after WiFi association.</li>
+<li><b>Delete/arrows in <code>_read_line</code></b>: escape sequences handled.</li>
+<li><b>sven timeout 600s</b>: generous timeout for <code>sven install/upgrade/sync</code>.</li>
+<li><b>Chat without staircase effect</b>: <code>_out()</code> writes explicit CRLF.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.12 — August 2026</h2>
+<h3>ollama-hardened support (Moonlight)</h3>
+<ul>
+<li><b>X-API-Key</b>: <code>auth_type</code> (bearer/x-api-key); <code>verify=False</code> only for x-api-key.</li>
+<li><b>Provider "Ollama Hardened"</b>: <code>webuillama.ccmai.org:8443</code>, Moonlight-16B-A3B.</li>
+<li><b>Fix reading key</b> of custom provider; hardened Caddyfile → 401 without a valid key.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.11 — August 2026</h2>
+<h3>local LLM improvements (accuracy / anti-hallucination)</h3>
+<ul>
+<li><b>AIOS grounding</b>: <code>_AIOS_GROUNDING</code> injects AIOS invariants into the system prompt.</li>
+<li><b>Verification discipline</b>: check current state with a tool first.</li>
+<li><b>Sampling per official Qwen3 doc</b>: thinking 0.6/0.95, no-thinking 0.7/0.8.</li>
+<li><b>Reasoning_content echo</b>: captured and returned in multi-turn history.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.10 — August 2026</h2>
+<h3>local thinking switch + relative context/threads</h3>
+<ul>
+<li><b>Local thinking mode (Qwen3-8B)</b>: ON/OFF via <code>local.think</code> (default OFF).</li>
+<li><b>Empirically verified</b>: Qwen3 reasoning goes in <code>delta.reasoning_content</code>, not <code>delta.content</code>.</li>
+<li><b>Fix context/threads in disk install</b>: uses <code>_detect_cpu()</code> + <code>_auto_context()</code>.</li>
+<li><b>Hot <code>/think</code> command</b>: toggle without leaving the agent.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.9 — August 2026</h2>
+<h3>fix: mute agent</h3>
+<ul>
+<li><b>Symptom</b>: agent stopped responding (blank response) on long tool calls with vision coordinates.</li>
+<li><b>Root cause</b>: <code>chat.py</code> swallowed <code>agent.run()</code> return; stream cut left empty content.</li>
+<li><b>Fixes</b>: show run() return, raw SSE stream log in <code>/tmp/aios-stream.log</code>, single retry on empty stream.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.8 — August 2026</h2>
+<h3>distro kernel (#5) — generic hardware</h3>
+<ul>
+<li>Kernel 6.18.10 config expanded: wifi, DRM, NVMe, UAS, ethernet, ALSA HDA + USB audio.</li>
+<li>linux-firmware in <code>/lib/firmware</code> (~534MB) + iwlwifi symlinks.</li>
+<li>Verified on HP Notebook (AMD APU + RTL8723BE + RTL8106E).</li>
+</ul>
+<h3>setup.py — option 5 WIFI SETUP</h3>
+<ul>
+<li>Scans SSIDs, generates wpa_supplicant config, connects and verifies.</li>
+<li>Persistence on installed system via systemd-networkd.</li>
+<li>Bug fix: <code>aios-wifi.service</code> path → replaced by networkd.</li>
+</ul>
+<h3>infrastructure</h3>
+<ul><li>sven DB sync + ghost-state registry; libinput chain; busybox applets. <b>MILESTONE</b>: complete AIOS on real hardware.</li></ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.7 — August 2026</h2>
+<h3>physical milestone</h3>
+<ul>
+<li>Full boot of AIOS LFS on real hardware verified (2 Aug 2026).</li>
+<li>ISO boots from USB with Rufus in DD mode.</li>
+<li>Installer copies to SSD; machine boots from disk with AIOS banner and login.</li>
+<li>Fixed live initrd init to wait for the boot device (30 s, <code>[ -b ]</code> loop).</li>
+<li>Expanded device list (<code>sdc</code>, <code>sdd</code>, <code>hd*</code>, <code>nvme*</code>, <code>mmcblk*</code>).</li>
+<li>Clear message <code>AIOS: boot media not found</code> + busybox shell.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.6 — August 2026</h2>
+<h3>aios-install v1.1.2 — kernel panic fix</h3>
+<ul>
+<li><b>Fix: kernel panic when booting from hard disk</b> (<code>exit code=0x7f00</code>).</li>
+<li>Octal escape in <code>sed</code> pattern → double backslash fix.</li>
+<li>Fallback <code>exec /bin/sh</code> → <code>exec /bin/busybox sh</code>.</li>
+<li>Active wait loop (30 s) for the root device; <code>switch_root</code>.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.5 — August 2026</h2>
+<h3>aios-install</h3>
+<ul>
+<li><b>v1.1.0</b>: change root/aios passwords during install (<code>getpass</code>, <code>chpasswd</code>).</li>
+<li><b>v1.1.1</b>: silent boot on disk (timeout=0, quiet, real root=).</li>
+<li>Removed <code>nokaslr</code>; <code>print_box</code> centered.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.4 — August 2026</h2>
+<h3>setup.py</h3>
+<ul>
+<li><code>validate_api_key</code> in a daemon thread with <code>join(timeout=12)</code>.</li>
+<li><code>os._exit(0)</code> at the end to force exit.</li>
+<li>API key saved correctly in <code>~/.aios/.env</code>.</li>
+<li>LOCAL menu with Qwen3-8B-Instruct; <code>print_box</code> centered.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.3 — August 2026</h2>
+<h3>fix GRUB bootloader on disk installs</h3>
+<ul>
+<li><code>grub-mkconfig</code> (graphical, hung in VirtualBox) replaced by a fixed text-mode <code>grub.cfg</code>.</li>
+<li><code>set default=0</code>, <code>set timeout=5</code>, <code>menuentry "AIOS LFS"</code>.</li>
+<li>UUIDs and "Arch Linux" references removed.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.2 — August 2026</h2>
+<h3>SRE Agent with native function calling on Qwen2.5-7B-Instruct</h3>
+<ul>
+<li>Model fixed to Qwen2.5-7B-Instruct; 13 tools.</li>
+<li>Procedural Skill-Pro memory, context compression via <code>/v1/tokenize</code>.</li>
+<li>Setup wizard with 7 providers; RAM detection and auto context scaling.</li>
+<li>Anti-loop; readline history; Ctrl+C interrupt.</li>
+</ul>
+</div>
+
+<div class="ver-block">
+<h2>v0.1 — August 2026</h2>
+<h3>SRE Agent with native function calling on Qwen3-8B</h3>
+<ul>
+<li>Complete repository rewrite; lightweight SRE agent via llama.cpp server.</li>
+<li>Tools: <code>run_command</code>, <code>read_file</code>, <code>write_file</code>.</li>
+<li>Conversational support; basic security (destructive-command warning).</li>
+</ul>
+</div>
+
+    </div>
+    <a class="back" href="/">&larr; back to ccmai.org</a>
+  </div>
+  <div class="term-foot"><span>&copy; 2026 CCMAI</span><span><a href="https://github.com/ccarrillomanzanares/aios-agent/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a></span><span>v0.17.1</span><span>ultrabeta</span></div>
+</div>
+</body>
+</html>
