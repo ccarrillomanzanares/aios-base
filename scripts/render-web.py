@@ -53,7 +53,8 @@ def md_html(md):
         if line.startswith("# "):
             out.append(f"<h1>&gt; {inline(line[2:])}</h1>")
         elif line.startswith("## "):
-            out.append(f"<h2>{inline(line[3:])}</h2>")
+            anchor = re.sub(r"[^a-z0-9]+", "-", line[3:].lower()).strip("-")
+            out.append(f'<h2 id="{anchor}">{inline(line[3:])}</h2>')
         elif line.strip():
             out.append(f"<p>{inline(line)}</p>")
     flush()

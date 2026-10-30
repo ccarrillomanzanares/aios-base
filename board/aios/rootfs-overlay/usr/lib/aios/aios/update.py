@@ -296,7 +296,7 @@ def code_notify(args):
         n = sum(len(v) for k, v in res.data["changes"].items() if k != "kept")
         sent = notify.send_to_user(
             "AIOS update available",
-            f"{n} file(s) to update. Ask the assistant, or run in a terminal: sudo aios update code apply")
+            f"{n} file(s) to update. In a terminal (Super+Enter): sudo aios update code apply. Help: Super+F1")
     else:
         sent = notify.send_to_user("New AIOS image available",
                                    "Some changes need a new image: download it from ccmai.org/aios")

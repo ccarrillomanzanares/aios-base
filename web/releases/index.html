@@ -81,6 +81,9 @@ certutil -hashfile aios.img.xz SHA256      # Windows</pre>
 <li>When it finishes, turn the laptop off, remove the USB and turn it on.</li>
 </ol>
 
+<h2>Updates</h2>
+<p>AIOS checks once a day for a new version signed by the AIOS team and shows a notice; it never installs anything by itself. To install, open a terminal and run <code>sudo aios update code apply</code>: it shows what will change, asks first, and <code>sudo aios update code rollback</code> undoes it. Changes that need a new image (new programs, the kernel) are published here. More in the <a href="/aios/help.html#updates">help page</a>.</p>
+
 <h2>Privacy</h2>
 <p>The AI runs on the laptop. Nothing leaves it unless you connect a remote AI provider (the assistant tells you) or send a diagnostic report with <code>aios-diag</code>. The report carries logs, hardware details, network names and a hardware test; <b>never your conversations</b>, AI keys, wifi passwords or the text of your reminders. It asks before adding your last screenshots.</p>
 

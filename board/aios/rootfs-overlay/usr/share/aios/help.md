@@ -30,6 +30,21 @@ The AIOS terminal opens when the session starts. Type a message and press Enter,
 
 The assistant asks before changing anything. Ask it things like "connect to my wifi", "turn the volume down", "remind me at 6 to call Ana" or "how hot is the processor?".
 
+## Notifications
+
+Notices appear in the top right corner: reminders, low battery, updates, temperature. They go away after a few seconds or when you click them; reminders and urgent ones (battery almost empty) stay until you click. Missed one? `makoctl restore` shows the last one again.
+
+## Updates
+
+AIOS checks for updates once a day (and 15 minutes after starting) and tells you with a notice. It never installs anything by itself.
+
+- Only versions signed by the AIOS team are offered, and never an older one.
+- To install: open a terminal (Super+Enter) and run `sudo aios update code apply`. It shows what will change and asks first.
+- Your own changes to settings files are kept; if one clashes, the new version is saved next to it as `.aios-new`.
+- Something went wrong? `sudo aios update code rollback` puts back exactly what was there before.
+- Check by hand: `sudo aios update code check`. Turn the daily check off: `AUTO_CHECK=no` in `/etc/aios/update.conf`.
+- Some changes (new programs, the kernel) need a new image: the notice says so, and you download it from ccmai.org/aios.
+
 ## Keyboard shortcuts
 
 | Keys | What it does |
@@ -69,6 +84,6 @@ Type them in a terminal (Super+Enter). The ones with `sudo` ask for your passwor
 | `aios sys selftest` | test the hardware |
 | `aios sys thermal`, `aios sys power` | temperature and battery |
 | `aios remind list` | reminders |
-| `aios update code check` | look for AIOS updates |
+| `sudo aios update code check` | look for AIOS updates (see Updates above) |
 | `sudo aios-install` | install AIOS on the disk (erases the whole disk) |
 | `aios-diag` | send a problem report: logs and hardware, never your conversations |
