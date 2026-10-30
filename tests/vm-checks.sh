@@ -19,6 +19,11 @@ jcode() { python3 -c 'import json,sys; print(json.loads(sys.stdin.read().strip()
 pkill -STOP -x swayidle
 
 # --- Sistema --------------------------------------------------------------------
+# Ningún ciclo de dependencias al arrancar: systemd los rompe quitando trabajos
+# (con aios-zram mal ordenado se perdía el montaje de /tmp)
+cyc=$(journalctl -b --no-pager | grep -c 'ordering cycle')
+[ "$cyc" = 0 ] && [ "$(findmnt -n -o FSTYPE /tmp)" = tmpfs ] && pass boot-no-cycles || \
+    fail boot-no-cycles "$cyc cycle(s); /tmp is $(findmnt -n -o FSTYPE /tmp)"
 [ -z "$(systemctl --failed --no-legend)" ] && pass services-ok || fail services-ok "$(systemctl --failed --no-legend | tr '\n' ' ')"
 [ "$(systemctl is-active sshd)" != active ] && pass sshd-off || fail sshd-off "sshd is running"
 # Cortafuegos: tabla cargada y entrada cerrada por defecto (la salida la prueban

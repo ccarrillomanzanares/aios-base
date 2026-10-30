@@ -1,8 +1,11 @@
 [Unit]
 Description=AIOS compressed swap in RAM (zram)
 Documentation=file:/usr/bin/aios-zram
+# Sin After=local-fs.target: tmp.mount va después de swap.target y antes de
+# local-fs.target, y el ciclo hacía que systemd descartara el montaje de /tmp al
+# arrancar (luego lo montaba bluetooth.service a destiempo, tapando lo que hubiera)
 DefaultDependencies=no
-After=local-fs.target
+After=systemd-modules-load.service
 Before=swap.target aios-llama.service
 Conflicts=shutdown.target
 
