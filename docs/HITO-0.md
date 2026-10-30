@@ -53,7 +53,8 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 
 Sesión de la noche: primeros arranques en el HP 15s (2019) y en el HP 15-ba (antiguo), arreglos y proveedores de IA. Detalle en las secciones «Primer arranque en el HP 15s», «Portátil antiguo» y «Cortafuegos y proveedores de IA».
 
-- **Imagen publicada** (29 oct, 23:38): commit `d89c73c` (`DIRTY=no`), `make test` 74/74. `https://ccmai.org/aios/releases/aios.img.xz`, sha256 `eae908aa27461ba3bcd2fc1c909c059aa72437c72106fdb646c1615424c6062c`. La anterior (17:55) queda en `build/aios-17h55.img.xz`. No lleva las mejoras de la rama de la noche (sección siguiente).
+- **Imagen publicada** (30 oct, 08:01): commit `dbd89d6` (`DIRTY=no`), `make test` 92/92. Lleva todas las mejoras de la noche del 29 al 30 y, al 3 % de batería sin cargador, aviso en pantalla y voz y suspensión al minuto (se cancela al enchufar). `https://ccmai.org/aios/releases/aios.img.xz`, sha256 `6d39e335d12eac0afea65a6e2124dcf63b2f78297ce2a703a2286cb441056097`. Las anteriores quedan en `build/aios-d89c73c.img.xz` y `build/aios-17h55.img.xz`.
+- **Push pendiente**: este VPS no tiene credenciales de GitHub; el push lo hace el usuario (GitHub sigue en `148c7e6`).
 - **Pendiente de confirmar en el HP 15s con la imagen nueva**: beep y micrófono (si fallan, el diag trae ahora `audio-codec.txt` y `audio-alsa.txt`), velocidad entre mensajes (plantilla estable), wifi desde el agente (contraseña sin eco), bloqueo de pantalla, `/pair` con el servidor de ccmai.org (primera prueba con una clave real). En el HP 15-ba: que sway arranque (espera a udev en `aios-session`).
 - **VPS**: el receptor (`aios-diag-receiver`) sirve también el emparejamiento (`/aios-diag/pair`); se reinicia con `sudo systemctl restart aios-diag-receiver` tras tocar `diag-server.py` o `pair.html`. El llama-server de Docker con Caddy (`llama-qwen`, `llama-proxy`, `webuillama.ccmai.org:8443`) es del proyecto **llama-hardened**: no tocarlo ni usar sus claves.
 - **Siguiente: instalador a disco** (decidido con el usuario): borra el disco entero, se probará en el HP 15-ba (tiene una versión antigua de AIOS que se puede perder). Diseño propuesto:
@@ -83,7 +84,7 @@ Hechas mientras el usuario dormía, a petición suya, **fuera de la imagen publi
 
 **Estado (30 oct, 02:00)**: rama fusionada en `main` (fast-forward, sin push). Imagen de `e1ca6cd` compilada y `make test` **92/92** (native + QEMU). **No publicada**: la publicada sigue siendo la de `d89c73c`. Encontrado y corregido por el camino: `aios-zram.service` creaba un ciclo de arranque con `tmp.mount` (systemd descartaba el montaje de `/tmp` y luego bluetooth.service lo montaba encima de lo que hubiera); nueva prueba `boot-no-cycles`. Las comprobaciones de la VM se ejecutan ahora desde un fichero con la entrada en `/dev/null`.
 
-Pendiente de probar en hardware: todo lo anterior. Dudas para el usuario: si quiere la suspensión al 3 % (o apagado), y el atajo del dictado (Super+Ctrl+Espacio; Super+Mayús+Espacio ya era «ventana flotante»).
+Pendiente de probar en hardware: todo lo anterior. Decidido con el usuario (30 oct): suspensión al 3 % con aviso previo; el dictado se queda en Super+Ctrl+Espacio.
 
 ## Traspaso anterior (29 oct, fin de la sesión larga)
 
