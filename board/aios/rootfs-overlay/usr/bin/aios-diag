@@ -2,20 +2,25 @@
 # AIOS — recoge logs y datos del equipo en un .tar.gz y lo sube al receptor
 # de diagnósticos (/etc/aios/diag.conf). Funciona desde la shell de tty1
 # aunque sway no haya arrancado.
-#   aios-diag                   recoge y sube (con las 3 últimas capturas)
+#   aios-diag                   recoge y sube; pregunta antes de incluir las
+#                               3 últimas capturas (sin terminal, no las incluye)
 #   aios-diag --local           solo recoge (deja el .tar.gz en /tmp)
-#   aios-diag --no-screenshots  sin capturas de pantalla
+#   aios-diag --screenshots     incluye las capturas sin preguntar
+#   aios-diag --no-screenshots  sin capturas, sin preguntar
+# Nunca recoge las conversaciones, las claves de los proveedores de IA, las
+# contraseñas wifi ni el texto de los recordatorios (solo cuántos hay).
 CONF=/etc/aios/diag.conf
 TOKEN_FILE=/etc/aios/diag.token
 [ -f "$CONF" ] && . "$CONF"
 
 upload=yes
-shots=yes
+shots=ask
 for a in "$@"; do
     case "$a" in
         --local) upload=no ;;
+        --screenshots) shots=yes ;;
         --no-screenshots) shots=no ;;
-        *) echo "usage: aios-diag [--local] [--no-screenshots]" >&2; exit 2 ;;
+        *) echo "usage: aios-diag [--local] [--screenshots|--no-screenshots]" >&2; exit 2 ;;
     esac
 done
 
@@ -48,7 +53,8 @@ run memory.txt sh -c 'free -h; echo; cat /proc/swaps; echo; cat /sys/block/zram0
 run power.txt sh -c 'aios sys thermal; echo; aios sys power; echo;
     for p in /sys/devices/system/cpu/cpufreq/policy0/*; do printf "%s: " "${p##*/}"; cat "$p" 2>/dev/null || echo; done;
     echo; cat /run/aios/llama-power.conf 2>/dev/null; systemctl status aios-power --no-pager 2>&1 | tail -5'
-run reminders.txt aios remind list
+# Solo cuántos recordatorios hay: su texto es del usuario
+run reminders.txt sh -c 'aios remind list --json | python3 -c "import json,sys; print(len(json.load(sys.stdin)[\"data\"][\"reminders\"]), \"reminder(s)\")"'
 run disks.txt sh -c 'lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS; echo; df -h'
 run pci.txt lspci -nnk
 run usb.txt lsusb
@@ -91,14 +97,26 @@ run audio-alsa.txt sh -c 'for c in /proc/asound/card[0-9]*; do n=${c##*card}; ec
     echo; systemctl list-units --no-pager "pipewire*" "wireplumber*"'
 
 # --- Últimas capturas de pantalla (tecla Impr Pant): lo que vio el usuario ---
-if [ "$shots" = yes ]; then
+# Pueden enseñar conversaciones u otras cosas privadas: se pregunta antes (por
+# defecto no) y, sin terminal para preguntar, no se incluyen.
+shotlist=$(ls -1t "$HOME"/Pictures/Screenshots/*.png 2>/dev/null | head -n 3)
+if [ -n "$shotlist" ] && [ "$shots" = ask ]; then
+    shots=no
+    if [ -t 0 ]; then
+        echo "AIOS diag: your last screenshot(s):"
+        for f in $shotlist; do echo "  $(date -r "$f" '+%Y-%m-%d %H:%M')  ${f##*/}"; done
+        printf "Include them? They may show your conversations or other private things. [y/N] "
+        read -r ans
+        case "$ans" in y|Y|yes|s|S|si|sí) shots=yes ;; esac
+    fi
+fi
+if [ -n "$shotlist" ] && [ "$shots" = yes ]; then
     mkdir -p "$dir/screenshots"
-    ls -1t "$HOME"/Pictures/Screenshots/*.png 2>/dev/null | head -n 3 | while read -r f; do
+    for f in $shotlist; do
         # hasta 4 MB por captura, para no hacer enorme el paquete
         [ "$(stat -c %s "$f")" -le 4194304 ] && cp "$f" "$dir/screenshots/"
     done
-    n=$(ls "$dir/screenshots" | wc -l)
-    [ "$n" -gt 0 ] && echo "AIOS diag: including your last $n screenshot(s) (use --no-screenshots to skip)"
+    echo "AIOS diag: including $(ls "$dir/screenshots" | wc -l) screenshot(s)"
 fi
 
 # --- systemd y journal (aios está en systemd-journal: ve el del sistema) ------

@@ -133,7 +133,13 @@ ls /lib/firmware/intel/sof/sof-icl.ri >/dev/null 2>&1 && ls /usr/share/alsa/ucm2
 SWAYSOCK=$(ls /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -1) swaymsg 'output * power on' >/dev/null
 sleep 3  # hasta que sway pinte un fotograma, grim falla ("failed to copy output")
 f=$(aios-screenshot) && [ -s "$f" ] && pass screenshot || fail screenshot "$f locked=$(pgrep -x swaylock >/dev/null && echo yes || echo no)"
-aios-diag --local > /tmp/diag.out 2>&1
+# Sin terminal para preguntar, las capturas no van; con --screenshots, sí
+aios-diag --local > /tmp/diag0.out 2>&1
+t0=$(sed -n 's/.*saved \(\/tmp\/[^ ]*\.tar\.gz\).*/\1/p' /tmp/diag0.out)
+[ -n "$t0" ] && ! gzip -dc "$t0" | tar -tf - | grep -q 'screenshots/' && pass diag-no-screenshots-by-default || \
+    fail diag-no-screenshots-by-default "$(tail -2 /tmp/diag0.out)"
+sleep 1  # otro nombre de paquete (lleva la hora con segundos)
+aios-diag --local --screenshots > /tmp/diag.out 2>&1
 t=$(sed -n 's/.*saved \(\/tmp\/[^ ]*\.tar\.gz\).*/\1/p' /tmp/diag.out)
 [ -n "$t" ] && gzip -dc "$t" | tar -tf - | grep -q 'screenshots/aios-' && pass diag-screenshots || fail diag-screenshots "$(tail -2 /tmp/diag.out)"
 gzip -dc "$t" | tar -tf - | grep -q 'audio.txt' && pass diag-audio || fail diag-audio "no audio.txt"
@@ -271,6 +277,13 @@ id2=$(aios remind add 1h "otro" --json | python3 -c 'import json,sys; print(json
 sleep 10
 [ "$(st "$id1")" = fired ] && pass remind-fires || fail remind-fires "state $(st "$id1"); $(systemctl --user status "aios-remind-$id1" --no-pager 2>&1 | tail -3 | tr '\n' ' ')"
 aios remind list | grep -q "otro" && pass remind-list || fail remind-list "?"
+# El diag cuenta los recordatorios pero no lleva su texto
+aios-diag --local --no-screenshots > /tmp/diag2.out 2>&1
+t2=$(sed -n 's/.*saved \(\/tmp\/[^ ]*\.tar\.gz\).*/\1/p' /tmp/diag2.out)
+n=$(gzip -dc "$t2" | tar -tf - | grep 'reminders.txt$')
+r=$(gzip -dc "$t2" | tar -xOf - "$n" 2>/dev/null)  # tar de BusyBox: sin --wildcards
+echo "$r" | grep -q "reminder(s)" && ! echo "$r" | grep -q "otro" && pass diag-reminders-private || \
+    fail diag-reminders-private "$(echo "$r" | tr '\n' ' ')"
 aios remind cancel "$id2" >/dev/null && [ "$(st "$id2")" = cancelled ] && ! systemctl --user -q is-active "aios-remind-$id2.timer" && pass remind-cancel || fail remind-cancel "?"
 [ "$(aios remind add ayer x --json | jcode)" = REMIND_BAD_TIME ] && pass remind-bad-time || fail remind-bad-time "?"
 # Apagado cuando tocaba: al entrar en la sesión avisa como perdido
