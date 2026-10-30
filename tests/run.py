@@ -483,8 +483,9 @@ def serial_login(s, q, seconds=900, passphrase=None):
             s.send("aios")
             s.wait(rb"Password: ", 30)
             s.send("aios")
-            # el prompt de aios lleva color: «$\e[0m »
-            return s.wait(rb"\$(\x1b\[[0-9;]*m)* ", 120), asked
+            # el prompt de aios lleva color: «$\e[0m ». Hasta 5 min: el login coincide
+            # con el arranque de la sesión de tty1 (servicios de usuario, modelo) sin KVM
+            return s.wait(rb"\$(\x1b\[[0-9;]*m)* ", 300), asked
         s.send("")
     return False, asked
 

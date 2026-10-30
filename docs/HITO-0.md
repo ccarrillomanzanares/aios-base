@@ -142,7 +142,9 @@ Bloqueo de pantalla (swaylock) imposible de quitar: rechazaba cualquier contrase
 
 ## Traspaso (30 oct, tarde) — leer primero
 
-- **Instalador a disco hecho** (sección «Instalador a disco»): `make test` 103/103 con la imagen de ahora (`build/output/images/aios.img`, `DIRTY=yes` sobre `3150798`). Sin commit ni imagen publicada: lo decide el usuario.
+- **Instalador a disco hecho** (sección «Instalador a disco»): commit `d6fd3fa` (con push). `make test` 103/103 antes del commit; con la imagen de `d6fd3fa` (`DIRTY=no`) `make test-install` 11/11. Imagen lista en `build/aios-d6fd3fa.img.xz`, sha256 `6a86b71c53164c3982fa95d77cd780d2aa7e2ca7be4a361ecd6fc5a7e133a4b8`; publicarla la hace el usuario (a Claude Code no le está permitido escribir en `/var/www`). La publicada anterior es la de `dbd89d6`.
+- El usuario la prueba en los dos portátiles (aviso dado: en el HP 15s borra Windows).
+- Prueba más robusta: el login por consola serie espera hasta 5 min (una pasada falló con 120 s: coincide con el arranque de la sesión de tty1 sin KVM).
 - **Siguiente**: imagen para el HP 15-ba con el instalador y los arreglos del mediodía; allí, `sudo aios-install` sobre el disco interno (BIOS), arrancar sin el USB y con él puesto.
 - Prueba en hardware: que el firmware arranque el disco (BIOS: `boot.img` en el MBR; UEFI: ruta de reserva), la frase de `/home` en tty1 con teclado es, y el tiempo de copia.
 
