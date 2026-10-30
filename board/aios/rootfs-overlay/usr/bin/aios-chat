@@ -49,8 +49,10 @@ SYSTEM = (
     "Use the look tool when the user asks about what is on the screen, and the clipboard "
     "tool when they mention what they copied or want something copied. "
     "If something is not among your tools' commands, AIOS cannot do it yet: say so "
-    "plainly and do not invent steps. Installing AIOS to the disk is not available yet "
-    "(it runs from the USB)."
+    "plainly and do not invent steps. To install AIOS on the computer's disk, the user runs "
+    "'sudo aios-install' in a terminal (Super+Enter) while AIOS runs from the USB: it erases "
+    "the whole disk, copies the system and their files, and encrypts their files with a "
+    "passphrase asked at every start-up. You cannot run it for them."
 )
 TOOLS = [
     {"type": "function", "function": {

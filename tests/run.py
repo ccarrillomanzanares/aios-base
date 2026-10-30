@@ -8,7 +8,10 @@
           tests/vm-checks.sh por la consola serie, primer arranque, y desde
           fuera el audio grabado por QEMU y una captura de la sesión.
 
-Uso: tests/run.py [native|vm|all]. Resultados en build/test-results/.
+  install aios-install desde el USB a un segundo disco y ese disco arrancado
+          en BIOS y en UEFI (frase de /home por la consola serie).
+
+Uso: tests/run.py [native|vm|install|all]. Resultados en build/test-results/.
 Sin KVM la VM es lenta (~10 min); la fase native no la necesita.
 """
 import glob
@@ -437,6 +440,130 @@ def vm():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# --- Fase install: aios-install desde el USB a un segundo disco ------------------------
+
+def qemu_boot(tmp, drives, uefi=False, name="vm"):
+    """QEMU con unos discos (el primero arranca) y la consola serie en un socket."""
+    ser = f"{tmp}/{name}.sock"
+    fw = []
+    if uefi:
+        code = "/usr/share/OVMF/OVMF_CODE_4M.fd"
+        shutil.copy("/usr/share/OVMF/OVMF_VARS_4M.fd", f"{tmp}/{name}-vars.fd")
+        fw = ["-drive", f"if=pflash,format=raw,readonly=on,file={code}",
+              "-drive", f"if=pflash,format=raw,file={tmp}/{name}-vars.fd"]
+    kvm = ["-enable-kvm", "-cpu", "host"] if os.access("/dev/kvm", os.W_OK) else []
+    disks = []
+    for path, snapshot in drives:
+        disks += ["-drive", f"file={path},format=raw,if=virtio" + (",snapshot=on" if snapshot else "")]
+    q = subprocess.Popen(["qemu-system-x86_64", *kvm, "-m", "6G", "-smp", os.environ.get("AIOS_TEST_SMP", "12"),
+                          *fw, *disks, "-display", "none", "-serial", f"unix:{ser},server,nowait",
+                          "-nic", "user,model=virtio-net-pci"],
+                         stdout=subprocess.DEVNULL, stderr=open(f"{RESULTS}/qemu-{name}.log", "w"))
+    time.sleep(2)
+    return q, Serial(ser)
+
+
+def serial_login(s, q, seconds=900, passphrase=None):
+    """Espera el login (contestando antes a la frase de /home si se pide) y entra como aios."""
+    end = time.time() + seconds
+    asked = 0
+    while time.time() < end and q.poll() is None:
+        if passphrase and s.wait(rb"passphrase for", 5) and asked < 5:
+            # la primera vez mal: tries=0 debe volver a preguntar
+            s.send("clave-mala" if asked == 0 else passphrase)
+            asked += 1
+            # al teclear, systemd repinta el prompt (borra «press TAB»): no es una
+            # pregunta nueva. Si la nueva llegara dentro de estos 2 s y se perdiera,
+            # el Intro de abajo cuenta como intento vacío y vuelve a preguntar.
+            time.sleep(2)
+            s.wait(rb"$^", 0.5)
+            s.buf = s.buf.replace(b"passphrase for", b"")
+            continue
+        if s.wait(rb"login: $", 10):
+            s.send("aios")
+            s.wait(rb"Password: ", 30)
+            s.send("aios")
+            # el prompt de aios lleva color: «$\e[0m »
+            return s.wait(rb"\$(\x1b\[[0-9;]*m)* ", 120), asked
+        s.send("")
+    return False, asked
+
+
+def serial_run(s, cmd, seconds=120):
+    s.buf = b""
+    s.send(f"{cmd}; echo RUN-END")
+    s.wait(rb"\nRUN-END\r?\n", seconds)
+    return s.text()
+
+
+def install():
+    print("== install: aios-install desde el USB a un segundo disco (QEMU)", flush=True)
+    if not os.path.exists(IMAGE):
+        report("install-image", False, "no image: run 'make' first")
+        return
+    # el disco de destino ocupa ~7 GB: en build/, no en /tmp (puede ser tmpfs)
+    tmp = tempfile.mkdtemp(prefix="aios-install-", dir=os.path.join(ROOT, "build"))
+    disk = f"{tmp}/disk.img"
+    q = None
+    try:
+        with open(disk, "wb") as f:
+            f.truncate(30 * 1024 ** 3)
+        q, s = qemu_boot(tmp, [(IMAGE, True), (disk, False)], name="usb")
+        ok, _ = serial_login(s, q)
+        report("install-usb-boots", ok, s.text()[-300:])
+        if not ok:
+            return
+        out = serial_run(s, "aios-install --list --json")
+        m = re.search(r"^\[.*\]$", out, re.M)
+        lst = {d["name"]: d for d in json.loads(m.group(0))} if m else {}
+        report("install-list", lst.get("vda", {}).get("usable") is False and lst.get("vdb", {}).get("usable"),
+               out[-300:])
+        out = serial_run(s, "echo aios | sudo -S -p '' aios-install --disk /dev/vdb --confirm vda "
+                            "--passphrase-file /dev/null; echo RC=$?")
+        report("install-refuses-mismatch", "RC=1" in out and "Not confirmed" in out, out[-300:])
+        out = serial_run(s, "printf 'clave-de-prueba\\n' > /tmp/pp; echo aios | sudo -S -p '' "
+                            "aios-install --disk /dev/vdb --confirm vdb --passphrase-file /tmp/pp; echo RC=$?", 3600)
+        open(f"{RESULTS}/install-run.txt", "w").write(out)
+        report("install-runs", "RC=0" in out and "AIOS is installed" in out, out[-400:])
+        q.kill()
+        q.wait()
+        if "RC=0" not in out:
+            return
+
+        # El disco solo, en BIOS: frase de /home (una mal, otra bien), sesión y montajes
+        q, s = qemu_boot(tmp, [(disk, True)], name="disk-bios")
+        ok, asked = serial_login(s, q, passphrase="clave-de-prueba")
+        open(f"{RESULTS}/install-serial-bios.txt", "w").write(s.text())
+        report("install-boots-bios", ok, s.text()[-300:])
+        report("install-asks-again", asked >= 2, f"passphrase asked {asked} times")
+        if ok:
+            out = serial_run(s, "findmnt -no SOURCE /; findmnt -no SOURCE,FSTYPE /home; "
+                                "ls -a ~ | grep -c bash_profile; cat /etc/aios/install.conf")
+            open(f"{RESULTS}/install-bios.txt", "w").write(out)
+            report("install-root-on-disk", re.search(r"^/dev/vda2$", out, re.M) is not None, out[-300:])
+            report("install-home-encrypted", re.search(r"^/dev/mapper/home ext4$", out, re.M) is not None,
+                   out[-300:])
+            report("install-home-copied", re.search(r"^1$", out, re.M) is not None, out[-300:])
+        q.kill()
+        q.wait()
+
+        # UEFI con el USB también enchufado: arranca el disco, no el USB
+        q, s = qemu_boot(tmp, [(disk, True), (IMAGE, True)], uefi=True, name="disk-uefi")
+        ok, _ = serial_login(s, q, passphrase="clave-de-prueba")
+        open(f"{RESULTS}/install-serial-uefi.txt", "w").write(s.text())
+        report("install-boots-uefi", ok, s.text()[-300:])
+        if ok:
+            out = serial_run(s, "findmnt -no SOURCE /; cat /proc/cmdline")
+            report("install-uefi-not-usb", re.search(r"^/dev/vda2$", out, re.M) is not None
+                   and "a105a105" not in out, out[-300:])
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
+        report("install-setup", False, str(e))
+    finally:
+        if q and q.poll() is None:
+            q.kill()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def audio_has_sound(path):
     """¿Hay sonido en lo que QEMU grabó de la tarjeta (aios audio test, aplay)?"""
     try:
@@ -459,6 +586,8 @@ def main():
         native()
     if which in ("vm", "all"):
         vm()
+    if which in ("install", "all"):
+        install()
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)}/{len(results)} passed. Details in {RESULTS}/")
     for name, _, detail in failed:

@@ -40,7 +40,7 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | Historial del chat | `~/.local/share/aios/chats/*.json`; `/history` y `/resume [n]` |
 | Primer arranque | `aios-firstboot` antes del chat: contraseña propia (vía `chpasswd`, nunca en la línea de órdenes) y bloqueo de root; wifi si no hay red. Marca en `~/.local/state/aios/firstboot-done` |
 | Actualizaciones firmadas | `aios update code` por defecto en el canal `release`: solo etiquetas `v*` firmadas con SSH (clave en `/etc/aios/update-signers`; la privada en el VPS, `~/.ssh/aios-release`), nunca baja de versión. `CHANNEL=main` para desarrollo, sin firma. `scripts/release.sh vX.Y.Z` firma una versión |
-| `make test` | `tests/run.py`: fase native (binarios de la imagen en el VPS: agente con herramientas, `look`, voz, proveedor externo) y vm (QEMU snapshot: `tests/vm-checks.sh` por consola serie con wifi virtual, sonido grabado por QEMU, capturas, diag, actualización, primer arranque). Resultados en `build/test-results/` |
+| `make test` | `tests/run.py`: fase native (binarios de la imagen en el VPS: agente con herramientas, `look`, voz, proveedor externo) y vm (QEMU snapshot: `tests/vm-checks.sh` por consola serie con wifi virtual, sonido grabado por QEMU, capturas, diag, actualización, primer arranque) e install (`aios-install` a un segundo disco y arranque de ese disco). Resultados en `build/test-results/` |
 | Pantallas | `aios ui display list/on/off/mode/scale/extend/mirror`: swaymsg; cada elección se guarda por monitor (marca, modelo, serie) en `~/.config/sway/config.d/50-aios-displays.conf`; nunca apaga la última pantalla; duplicar con `wl-mirror` (paquete propio) |
 | Bloqueo e inactividad | `swaylock` + `swayidle` (paquetes propios): bloqueo a los 5 min, pantalla apagada a los 10, bloqueo antes de suspender (tapa). Super+Ctrl+L. Tema en `/etc/swaylock/config` |
 | Notificaciones | `mako` (paquete propio), tema en `/etc/xdg/mako/config`; `aios/notify.py` por D-Bus estándar. Batería baja al 10 % y 5 %: notificación y aviso hablado, una vez por umbral |
@@ -48,6 +48,7 @@ Arquitectura completa: [ARQUITECTURA.md](ARQUITECTURA.md).
 | Primer arranque completo | Idioma (`/etc/locale.conf`), teclado (sway al momento + consola), zona horaria, contraseña y red. Locales generados: es, en, ca, fr, de, it, pt |
 | Autoprueba de hardware | `aios sys selftest` (y dentro de `aios-diag`): CPU, GPU, pantallas, brillo, batería con desgaste, wifi, Bluetooth, sonido (tono de 1 kHz por el altavoz buscado en lo que graba el micrófono, Goertzel), modelo y voz (espeak → whisper, con tiempo) |
 | Arranque en el HP 15s | **Hecho** (29 oct, USB, UEFI): autoprueba 10/10 sin fallos (iris, 2 pantallas, wifi, Bluetooth, batería, modelo, voz); dos `aios-diag` en `~/aios-diag/` del VPS. Lo que salió y su arreglo, en «Primer arranque en el HP» |
+| Instalador a disco | `sudo aios-install` desde el USB (detalle en «Instalador a disco»). Compilado y probado en QEMU (`make test` 103/103, 30 oct); pendiente el HP 15-ba |
 
 ## Traspaso (29 oct, noche) — leer primero
 
@@ -64,6 +65,30 @@ Sesión de la noche: primeros arranques en el HP 15s (2019) y en el HP 15-ba (an
   - Paquetes a revisar: `cryptsetup`, `BR2_PACKAGE_SYSTEMD_CRYPTSETUP` (o equivalente en 2026.08), `dosfstools`, `e2fsprogs`, `gptfdisk`/`sfdisk`, kernel con `DM_CRYPT` y AES/XTS `=y`.
   - Probar primero en QEMU con un disco virtual extra (BIOS y UEFI), añadirlo a `make test`, y solo después al portátil.
 - **Push** solo cuando lo pida el usuario (último: 30 oct, `c516b26`).
+
+## Instalador a disco (30 oct)
+
+`aios-install` (Python, en el overlay). Se ejecuta desde el USB y **borra el disco entero**. Interactivo: lista los discos (nunca el del USB, ni los de solo lectura o de menos de 24 GB), resumen de lo que hay y de lo que se borra, confirmación escribiendo el nombre del disco y frase de /home dos veces (mín. 8). Sin preguntas: `--disk /dev/sdX --confirm sdX --passphrase-file F`; `--list [--json]`. En un AIOS ya instalado (`/etc/aios/install.conf`) se niega.
+
+| Partición | Contenido |
+|---|---|
+| sector 0 y hueco hasta 1 MiB | `boot.img` (440 bytes) y núcleo GRUB BIOS, como el USB |
+| 1, ESP FAT32 256 MiB | `EFI/BOOT/BOOTX64.EFI`, `aios/grub/grub.cfg`, `aios/grub/grubenv` (`slot=a`) |
+| 2, raíz A ext4 | copia del sistema que corre (bind de `/`, `cp -a`), sin `/home` |
+| 3, raíz B ext4 | vacía, para A/B (hito 4) |
+| 4, LUKS2 → ext4 | `/home` copiado del USB; `crypttab` con `tries=0` (root está bloqueado: el modo de emergencia no serviría) |
+
+Raíces de 1/8 del disco, entre 8 y 16 GiB. Se copia todo tal cual: contraseña, idioma, wifi, proveedores e historial siguen igual.
+
+Decisiones:
+- **MBR y no GPT** (cambio sobre el diseño del traspaso): es el esquema del USB, que ya arranca en BIOS y UEFI en los dos portátiles, y GRUB BIOS va en el hueco sin parchear sectores. Cuatro primarias justas; si hacen falta más (o discos > 2 TiB), pasar a GPT con partición BIOS boot.
+- El kernel no va en la ESP: GRUB lo lee de `/boot/bzImage` de la raíz activa (`search --fs-uuid`), así una actualización A/B cambia sistema y kernel a la vez. `root=PARTUUID=<firma>-02/03`.
+- Núcleos de GRUB propios del disco (`post-build.sh` → `/usr/lib/aios/boot`, con `loadenv`), que buscan `/aios/grub/grub.cfg`: con el USB y el disco enchufados, cada uno arranca lo suyo (el del USB busca `/boot/grub/grub.cfg`).
+- Paquetes nuevos: `cryptsetup` (systemd compila con él `systemd-cryptsetup`; obliga a compilar desde cero) y `dosfstools` (`mkfs.vfat`). El kernel ya tenía `DM_CRYPT` y XTS `=y`.
+- El agente no lo ejecuta: indica `sudo aios-install` en un terminal.
+- UEFI sin entrada en la NVRAM (no hay `efibootmgr`): se usa la ruta de reserva `EFI/BOOT/BOOTX64.EFI`, que casi todos los firmwares arrancan. El HP 15-ba es BIOS.
+
+Probado antes de compilar, en el VPS: instalación sobre un disco loop con la raíz de la imagen `dbd89d6` (sin LUKS al arrancar, esa imagen no tiene `systemd-cryptsetup`) y arranque en QEMU en BIOS, en UEFI y con `slot=b`. Compilado desde cero con cryptsetup (30 oct) y `make test` **103/103** (native 9, vm 83, install 11), sin commit todavía. Encontrado por la prueba: la imagen no trae `wipefs` (opción de util-linux sin activar); no hace falta, `sfdisk --wipe always --wipe-partitions always` borra las firmas viejas (comprobado reinstalando encima de una instalación con LUKS). Prueba completa en `make test-install` (fase `install` de `make test`): instala desde el USB en QEMU a un segundo disco, lo arranca en BIOS (frase mal y bien por la consola serie) y en UEFI con el USB también conectado.
 
 ## Noche del 29 al 30 oct: mejoras en la rama `mejoras-termica-bateria-updates`
 
@@ -114,6 +139,12 @@ HP Laptop 15s-fq1xxx, i5-1035G1 (Ice Lake, AVX-512), 7,5 GiB, ALC236 por HDA cl�
 Seguimiento (misma noche): en el HP 15s **tampoco se oía el beep** (la autoprueba daba «output OK» igualmente). En el diag PipeWire marcaba los auriculares como conectados y el altavoz como no disponible; el kernel aplica el ajuste genérico de HP (`ALC269_FIXUP_HP_MUTE_LED`, el 86C9 no tiene uno propio). Sin confirmar si es por el PipeWire doble. `aios-diag` recoge ahora `audio-codec.txt` (pines y detección de conectores), `audio-alsa.txt` (`amixer contents`, procesos de audio con su uid, unidades de sistema de PipeWire).
 
 Bloqueo de pantalla (swaylock) imposible de quitar: rechazaba cualquier contraseña. PAM comprueba la contraseña con `unix_chkpwd`, que debe ser setuid root para leer `/etc/shadow`, y en la imagen estaba a 0755 (post-build no puede poner setuid). Arreglo: `board/aios/permissions.txt` en `BR2_ROOTFS_DEVICE_TABLE` (4755). Prueba nueva en QEMU: contraseña buena aceptada y mala rechazada por `unix_chkpwd`, como hace swaylock. Mientras tanto: Ctrl+Alt+F2 y `pkill swaylock`.
+
+## Traspaso (30 oct, tarde) — leer primero
+
+- **Instalador a disco hecho** (sección «Instalador a disco»): `make test` 103/103 con la imagen de ahora (`build/output/images/aios.img`, `DIRTY=yes` sobre `3150798`). Sin commit ni imagen publicada: lo decide el usuario.
+- **Siguiente**: imagen para el HP 15-ba con el instalador y los arreglos del mediodía; allí, `sudo aios-install` sobre el disco interno (BIOS), arrancar sin el USB y con él puesto.
+- Prueba en hardware: que el firmware arranque el disco (BIOS: `boot.img` en el MBR; UEFI: ruta de reserva), la frase de `/home` en tty1 con teclado es, y el tiempo de copia.
 
 ## Traspaso (30 oct, mediodía) — leer primero
 

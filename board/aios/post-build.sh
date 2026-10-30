@@ -137,3 +137,18 @@ fi
 # El grub.cfg genérico de Buildroot en la raíz confundiría la búsqueda de
 # /boot/grub/grub.cfg de la configuración embebida (lección de newos).
 rm -f "$TARGET_DIR/boot/grub/grub.cfg"
+
+# --- GRUB del disco interno (aios-install) --------------------------------------
+# Núcleos propios para el disco: buscan /aios/grub/grub.cfg en vez del
+# /boot/grub/grub.cfg del USB, así con los dos enchufados cada uno arranca lo
+# suyo. Llevan loadenv: grubenv elige la raíz A o B.
+BOOT_OUT="$TARGET_DIR/usr/lib/aios/boot"
+GRUB_BUILD="$(ls -d "$BUILD_DIR"/grub2-*/ | grep -v host- | head -1)"
+MODS="boot linux ext2 fat part_msdos part_gpt normal search search_fs_file search_fs_uuid test loadenv"
+mkdir -p "$BOOT_OUT"
+"$HOST_DIR/bin/grub-mkimage" -d "$GRUB_BUILD/build-i386-pc/grub-core" -O i386-pc \
+    -o "$BOOT_OUT/core-pc.img" -p /aios/grub -c "$BOARD_DIR/grub-embed-disk.cfg" $MODS biosdisk
+"$HOST_DIR/bin/grub-mkimage" -d "$GRUB_BUILD/build-x86_64-efi/grub-core" -O x86_64-efi \
+    -o "$BOOT_OUT/bootx64.efi" -p /aios/grub -c "$BOARD_DIR/grub-embed-disk.cfg" $MODS efi_gop
+cp -f "$GRUB_BUILD/build-i386-pc/grub-core/boot.img" "$BOOT_OUT/boot.img"
+echo "post-build: GRUB del disco: $(ls "$BOOT_OUT" | tr '\n' ' ')"

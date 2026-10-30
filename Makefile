@@ -3,6 +3,7 @@
 #   make model      descarga Qwen3.5-4B a models/ (antes de 'make')
 #   make qemu       arranca la imagen en QEMU (BIOS); 'make qemu-uefi' con OVMF
 #   make test       pruebas: binarios de la imagen aquí + la imagen en QEMU
+#                   + el instalador a disco (test-native, test-vm, test-install)
 #                   (AIOS_TEST_SMP=N: CPU de la VM, 12 por defecto)
 #   make menuconfig / savedefconfig / linux-menuconfig
 #   make clean      borra build/output (no la descarga de Buildroot)
@@ -30,7 +31,7 @@ QEMU        := qemu-system-x86_64 $(KVM) -m $(QEMU_MEM) -smp $(QEMU_SMP) \
 	-nic user,model=virtio-net-pci,hostfwd=tcp::2222-:22 \
 	-serial mon:stdio
 
-.PHONY: all model qemu qemu-uefi menuconfig savedefconfig linux-menuconfig clean test test-native test-vm
+.PHONY: all model qemu qemu-uefi menuconfig savedefconfig linux-menuconfig clean test test-native test-vm test-install
 
 all: $(OUT_DIR)/.config
 	$(BR) -j$(JOBS)
@@ -60,7 +61,7 @@ menuconfig savedefconfig linux-menuconfig: $(OUT_DIR)/.config
 
 # Pruebas de la imagen: binarios reales en este equipo (native, rápido) y la
 # imagen en QEMU (vm). Resultados en build/test-results/.
-test test-native test-vm:
+test test-native test-vm test-install:
 	@test -f $(IMAGE) || { echo "No image: run 'make' first"; exit 1; }
 	python3 tests/run.py $(if $(filter test,$@),all,$(subst test-,,$@))
 
