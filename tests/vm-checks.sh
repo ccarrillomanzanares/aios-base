@@ -128,6 +128,10 @@ out=$(timeout 900 /opt/whisper/bin/whisper-cli -m /usr/share/aios/models/whisper
 [ $rc -eq 0 ] && ! echo "$out" | grep -q GGML_ASSERT && pass voice-whisper-runs || fail voice-whisper-runs "rc=$rc $(echo "$out" | grep -m1 -E 'ASSERT|error')"
 ls /lib/firmware/intel/sof/sof-icl.ri >/dev/null 2>&1 && ls /usr/share/alsa/ucm2 >/dev/null 2>&1 && pass audio-sof-ucm || fail audio-sof-ucm "SOF or UCM missing"
 
+# --- Ayuda (Super+F1): la misma que https://ccmai.org/aios/help.html ---------------
+aios-help --plain 2>&1 | grep -q "Keyboard shortcuts" && grep -q 'mod+F1 exec.*aios-help' /etc/sway/config && \
+    pass help || fail help "$(aios-help --plain 2>&1 | head -2)"
+
 # --- Pantalla y diagnóstico -----------------------------------------------------------
 # La VM es lenta: swayidle ya habrá apagado la pantalla y grim no tendría qué copiar
 SWAYSOCK=$(ls /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -1) swaymsg 'output * power on' >/dev/null

@@ -52,7 +52,8 @@ SYSTEM = (
     "plainly and do not invent steps. To install AIOS on the computer's disk, the user runs "
     "'sudo aios-install' in a terminal (Super+Enter) while AIOS runs from the USB: it erases "
     "the whole disk, copies the system and their files, and encrypts their files with a "
-    "passphrase asked at every start-up. You cannot run it for them."
+    "passphrase asked at every start-up. You cannot run it for them. "
+    "For keyboard shortcuts, a locked screen or general help, tell them to press Super+F1."
 )
 TOOLS = [
     {"type": "function", "function": {
@@ -717,7 +718,8 @@ def record_until_enter():
 
 HELP = ("Type a message. /voice to speak (or hold Super+Space), /look [question] to show "
         "the screen,\n/speak on|off, /history, /resume [n], /clear starts over, /exit quits.\n"
-        "AI: /ai lists them, /ai <name> [model] switches, /pair adds one with its API key.")
+        "AI: /ai lists them, /ai <name> [model] switches, /pair adds one with its API key.\n"
+        "Full help, keyboard shortcuts and a locked screen: Super+F1 (or aios-help).")
 
 
 def main():
