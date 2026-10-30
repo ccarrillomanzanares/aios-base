@@ -81,6 +81,8 @@ Hechas mientras el usuario dormía, a petición suya, **fuera de la imagen publi
 | Batería y memoria | Tiempo restante en la barra; suspensión al 3 % sin cargador; `OOMScoreAdjust=500` en el modelo |
 | Diag y pruebas | Diag con swap/zram, temperatura, energía y recordatorios. QEMU: emparejamiento de punta a punta y wifi del agente con contraseña sin eco; native: llama-server como `aios-llama` y caché del prompt |
 
+**Estado (30 oct, 02:00)**: rama fusionada en `main` (fast-forward, sin push). Imagen de `e1ca6cd` compilada y `make test` **92/92** (native + QEMU). **No publicada**: la publicada sigue siendo la de `d89c73c`. Encontrado y corregido por el camino: `aios-zram.service` creaba un ciclo de arranque con `tmp.mount` (systemd descartaba el montaje de `/tmp` y luego bluetooth.service lo montaba encima de lo que hubiera); nueva prueba `boot-no-cycles`. Las comprobaciones de la VM se ejecutan ahora desde un fichero con la entrada en `/dev/null`.
+
 Pendiente de probar en hardware: todo lo anterior. Dudas para el usuario: si quiere la suspensión al 3 % (o apagado), y el atajo del dictado (Super+Ctrl+Espacio; Super+Mayús+Espacio ya era «ventana flotante»).
 
 ## Traspaso anterior (29 oct, fin de la sesión larga)
